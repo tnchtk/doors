@@ -1,15 +1,16 @@
 :root{
-  --bg:#14171C;
-  --bg-1:#1A1E25;
-  --bg-2:#20252D;
-  --bg-3:#272D36;
-  --line:#2E353F;
-  --line-soft:#242A32;
-  --text:#EDEFF2;
-  --text-dim:#9BA4B0;
-  --text-faint:#67707C;
-  --accent:#FF7A33;
-  --accent-dim:#7A4023;
+  --bg:#111419;
+  --bg-1:#181C23;
+  --bg-2:#20252E;
+  --bg-3:#2A313C;
+  --line:#38414D;
+  --line-soft:#292F38;
+  --text:#F1F3F5;
+  --text-dim:#A9B1BC;
+  --text-faint:#7D8794;
+  --accent:#FF8142;
+  --accent-dim:#75452F;
+  --accent-soft:rgba(255,129,66,.12);
   --ok:#3ECF8E;
   --ok-dim:#1E4A38;
   --warn:#F5B93D;
@@ -18,10 +19,11 @@
   --bad-dim:#4A1F1F;
   --info:#5B9CFF;
   --info-dim:#20304A;
-  --radius-s:6px;
-  --radius:10px;
-  --radius-l:16px;
-  --sidebar-w:236px;
+  --radius-s:8px;
+  --radius:12px;
+  --radius-l:18px;
+  --sidebar-w:248px;
+  --shadow-soft:0 14px 36px rgba(0,0,0,.18);
   font-size:15px;
 }
 :root{color-scheme:dark;}
@@ -29,7 +31,7 @@
 html,body{height:100%;}
 body{
   margin:0;
-  background:var(--bg);
+  background:radial-gradient(ellipse at 80% -20%,rgba(255,129,66,.055),transparent 42%),var(--bg);
   color:var(--text);
   font-family:'Inter',system-ui,-apple-system,sans-serif;
   -webkit-font-smoothing:antialiased;

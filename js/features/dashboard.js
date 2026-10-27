@@ -18,15 +18,23 @@ function pageDashboard(){
   });
 
   return `
+    <div class="dashboard-heading">
+      <div>
+        <div class="dashboard-eyebrow">Оперативная сводка</div>
+        <h2>Монтаж под контролем</h2>
+        <p>Состояние объектов, дверей и материалов в одном месте.</p>
+      </div>
+      <div class="dashboard-date">${new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
+    </div>
     <div class="kpi-grid">
-      <div class="kpi"><div class="val">${state.objects.length}</div><div class="lbl">🏗️ Объектов</div></div>
-      <div class="kpi"><div class="val">${state.objects.reduce((s,o)=>s+o.blocks.length,0)}</div><div class="lbl">🏢 Блоков</div></div>
-      <div class="kpi"><div class="val">${state.brigades.length}</div><div class="lbl">👷 Бригад</div></div>
-      <div class="kpi accent"><div class="val">${total.toLocaleString('ru')}</div><div class="lbl">🚪 Всего дверей</div></div>
-      <div class="kpi ok"><div class="val">${done.toLocaleString('ru')}</div><div class="lbl">✅ Установлено</div></div>
-      <div class="kpi warn"><div class="val">${(total-done-problemCount).toLocaleString('ru')}</div><div class="lbl">⏳ Осталось</div></div>
-      <div class="kpi bad"><div class="val">${problemCount}</div><div class="lbl">⚠️ Проблемные</div></div>
-      <div class="kpi bad"><div class="val">${shortMaterials.length}</div><div class="lbl">📦 Не хватает материалов</div></div>
+      <div class="kpi"><div class="val">${state.objects.length}</div><div class="lbl">Объектов</div></div>
+      <div class="kpi"><div class="val">${state.objects.reduce((s,o)=>s+o.blocks.length,0)}</div><div class="lbl">Блоков</div></div>
+      <div class="kpi"><div class="val">${state.brigades.length}</div><div class="lbl">Бригад</div></div>
+      <div class="kpi accent"><div class="val">${total.toLocaleString('ru')}</div><div class="lbl">Всего дверей</div></div>
+      <div class="kpi ok"><div class="val">${done.toLocaleString('ru')}</div><div class="lbl">Установлено</div></div>
+      <div class="kpi warn"><div class="val">${(total-done-problemCount).toLocaleString('ru')}</div><div class="lbl">Осталось</div></div>
+      <div class="kpi bad"><div class="val">${problemCount}</div><div class="lbl">Проблемных дверей</div></div>
+      <div class="kpi bad"><div class="val">${shortMaterials.length}</div><div class="lbl">Материалов не хватает</div></div>
     </div>
 
     <div class="two-col">
