@@ -18,6 +18,15 @@ let cloudPendingRemoteRevision=0;
 let cloudWriteBlocked=false;
 let cloudLoadingUserId=null;
 let cloudLoadPromise=null;
+const CLOUD_REQUEST_TIMEOUT_MS=15000;
+
+function withCloudTimeout(promise){
+  let timer;
+  const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>reject(new Error('Supabase не ответил за 15 секунд. Проверьте интернет и состояние проекта, затем повторите попытку.')),CLOUD_REQUEST_TIMEOUT_MS);
+  });
+  return Promise.race([Promise.resolve(promise),timeout]).finally(()=>clearTimeout(timer));
+}
 
 function freshState(){
   const brigades=buildBrigades();
@@ -96,7 +105,7 @@ function stopCloudSubscription(){
 }
 
 async function readCloudState(){
-  const {data,error}=await supabaseClient.from('app_state').select('state,revision').eq('id',1).maybeSingle();
+  const {data,error}=await withCloudTimeout(supabaseClient.from('app_state').select('state,revision').eq('id',1).maybeSingle());
   if(error) throw error;
   if(!data) throw new Error('Не найдена таблица общей базы. Выполните SQL-схему в Supabase.');
   state=normalizeCloudState(data.state);
@@ -132,7 +141,7 @@ async function loadCloudState(user){
   cloudLoadPromise=(async()=>{
     state=null;cloudError='';cloudStatus='Загрузка общей базы…';
     try{
-      const {data:profile,error:profileError}=await supabaseClient.from('profiles').select('id').eq('id',user.id).maybeSingle();
+      const {data:profile,error:profileError}=await withCloudTimeout(supabaseClient.from('profiles').select('id').eq('id',user.id).maybeSingle());
       if(profileError)throw profileError;
       if(!profile)throw new Error('Учетная запись не активирована. Попросите администратора проверить доступ.');
       await readCloudState();
@@ -168,7 +177,7 @@ async function initializeCloud(){
       setTimeout(()=>{if(cloudUser?.id!==session.user.id)loadCloudState(session.user);},0);
     }
   });
-  const {data,error}=await supabaseClient.auth.getSession();
+  const {data,error}=await withCloudTimeout(supabaseClient.auth.getSession());
   if(error){
     cloudError=error.message;cloudStatus='Ошибка входа';cloudInitialized=true;
     if(typeof render==='function')render();
@@ -184,7 +193,7 @@ async function initializeCloud(){
 
 async function cloudSignIn(email,password){
   if(!supabaseClient)throw new Error('Сначала настройте подключение к облачной базе.');
-  const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+  const {data,error}=await withCloudTimeout(supabaseClient.auth.signInWithPassword({email,password}));
   if(error)throw error;
   await loadCloudState(data.user);
 }
