@@ -163,3 +163,6 @@ tr.clickable:hover{background:rgba(255,255,255,.035);}
 
 .progress-row{display:flex;align-items:center;gap:10px;}
 .progress-row .bar{flex:1;}
+
+.admin-select{max-width:190px;background:var(--bg-2);border:1px solid var(--line);color:var(--text);padding:7px 9px;border-radius:7px;font:inherit;font-size:12px;}
+.admin-select:focus{outline:2px solid var(--accent);outline-offset:1px;}

@@ -10,9 +10,18 @@ const NAV_ITEMS=[
   {id:'purchases', label:'Закупки', icon:'purchases'},
   {id:'problems', label:'Проблемы', icon:'problems', badgeFn: s=>allDoors(s).filter(x=>x.door.status==='problem').length},
   {id:'reports', label:'Отчёты', icon:'reports'},
-  {id:'admin', label:'Администрирование', icon:'admin'},
+  {id:'admin', label:'Админ-панель', icon:'admin'},
 ];
 
+function navItemsForUser(){
+  if(!cloudEnabled)return NAV_ITEMS;
+  const role=cloudProfile?.role;
+  if(role==='admin')return NAV_ITEMS;
+  if(role==='manager')return NAV_ITEMS.filter(item=>item.id!=='admin');
+  if(role==='foreman')return NAV_ITEMS.filter(item=>['dashboard','objects','problems'].includes(item.id));
+  return NAV_ITEMS.filter(item=>item.id==='dashboard');
+}
+function canOpenPage(page){return !cloudEnabled||navItemsForUser().some(item=>item.id===page);}
 function nameOfPage(p){return (NAV_ITEMS.find(n=>n.id===p)||{}).label||'';}
 
 function render(){
@@ -31,6 +40,8 @@ function render(){
     bindCloudAuthEvents();
     return;
   }
+  if(!canOpenPage(route.page))route={page:navItemsForUser()[0]?.id||'dashboard'};
+  const navItems=navItemsForUser();
   app.innerHTML = `
     ${sidebarOpen?'<div class="backdrop" data-close-sidebar></div>':''}
     <aside class="sidebar ${sidebarOpen?'open':''}">
@@ -42,7 +53,7 @@ function render(){
         </div>
       </div>
       <nav class="nav">
-        ${NAV_ITEMS.map(item=>{
+        ${navItems.map(item=>{
           const badge = item.badgeFn ? item.badgeFn(state) : 0;
           return `<div class="nav-item ${route.page===item.id?'active':''}" data-nav="${item.id}" tabindex="0" role="button">
             ${ICONS[item.icon]}<span>${item.label}</span>
@@ -50,7 +61,7 @@ function render(){
           </div>`;
           }).join('')}
       </nav>
-      ${cloudEnabled?`<div class="account-box"><span class="account-email">${htmlEscape(cloudUser.email||'Сотрудник')}</span><span class="account-status">${htmlEscape(cloudStatus)}</span><button class="btn sm" data-cloud-signout>Выйти</button></div>`:`<div class="role-switch">
+      ${cloudEnabled?`<div class="account-box"><span class="account-email">${htmlEscape(cloudUser.email||'Сотрудник')}</span><span class="account-status">${htmlEscape(({admin:'Администратор',manager:'Менеджер',foreman:'Бригадир'}[cloudProfile?.role]||'Сотрудник')+' · '+cloudStatus)}</span><button class="btn sm" data-cloud-signout>Выйти</button></div>`:`<div class="role-switch">
         <label>Роль</label>
         <select id="roleSelect">
           <option>Администратор</option>
@@ -72,7 +83,7 @@ function render(){
       <div class="content" id="content"></div>
     </div>
   `;
-  document.getElementById('content').innerHTML = `${cloudEnabled?'':localModeNotice()}${renderPage()}`;
+  document.getElementById('content').innerHTML = `${cloudEnabled?'':localModeNotice()}${cloudEnabled&&cloudProfile?.role==='foreman'?'<div class="local-mode-banner"><strong>Режим бригадира.</strong> Здесь показаны только назначенные бригаде этажи. Отметки установки и фото добавим следующим этапом.</div>':''}${renderPage()}`;
   bindGlobalEvents();
   bindPageEvents();
 }
@@ -137,6 +148,7 @@ function pageCrumb(){
 }
 
 function goto(page, extra){
+  if(!canOpenPage(page))return;
   route = {page, ...extra};
   sidebarOpen=false;
   render();

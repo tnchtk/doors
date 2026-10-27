@@ -28,7 +28,7 @@ function crumb(segments){
 
 function objectsList(){
   return `
-    <div class="panel-head"><div><h3>Объекты</h3><div class="hint">Откройте объект, чтобы вести двери по блокам и квартирам</div></div><button class="btn primary sm" data-create-object>+ Новый объект</button></div>
+    <div class="panel-head"><div><h3>Объекты</h3><div class="hint">Откройте объект, чтобы вести двери по блокам и квартирам</div></div>${canManageWorkspace()?'<button class="btn primary sm" data-create-object>+ Новый объект</button>':''}</div>
     <div class="card-grid">
       ${state.objects.map(o=>{
         const od=objDoors(state,o.id); const oc=countByStatus(od); const ot=totalCount(oc); const done=doneCount(oc);
@@ -49,7 +49,7 @@ function objectsList(){
 function blockList(obj){
   return `
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name}])}
-    <div class="panel-head"><h3>Блоки</h3><button class="btn primary sm" data-create-block="${obj.id}">+ Новый блок</button></div>
+    <div class="panel-head"><h3>Блоки</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-block="${obj.id}">+ Новый блок</button>`:''}</div>
     <div class="card-grid">
       ${obj.blocks.map(b=>{
         const doors=[]; b.floors.forEach(f=>f.apartments.forEach(a=>a.doors.forEach(d=>doors.push(d))));
@@ -71,7 +71,7 @@ function blockList(obj){
 function floorList(obj, block){
   return `
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name, click:{page:'objects', objId:obj.id}}, {label:block.name}])}
-    <div class="panel-head"><h3>Этажи · ${block.name}</h3><button class="btn primary sm" data-create-floor='${JSON.stringify({objId:obj.id,blockId:block.id})}'>+ Новый этаж</button></div>
+    <div class="panel-head"><h3>Этажи · ${block.name}</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-floor='${JSON.stringify({objId:obj.id,blockId:block.id})}'>+ Новый этаж</button>`:''}</div>
     <div class="card-grid">
       ${block.floors.map(f=>{
         const doors=[]; f.apartments.forEach(a=>a.doors.forEach(d=>doors.push(d)));
@@ -97,7 +97,7 @@ function apartmentList(obj, block, floor){
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name, click:{page:'objects', objId:obj.id}}, {label:block.name, click:{page:'objects', objId:obj.id, blockId:block.id}}, {label:floor.num+' этаж'}])}
     <div class="panel" style="margin-bottom:16px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <div style="font-size:13px;color:var(--text-dim)">Бригада на этаже: <strong style="color:var(--text)">${brigade?brigade.name:'—'}</strong></div>
-      <button class="btn primary sm" data-create-apartment='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id})}'>+ Новая квартира</button>
+      ${canManageWorkspace()?`<button class="btn primary sm" data-create-apartment='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id})}'>+ Новая квартира</button>`:''}
     </div>
     <div class="card-grid">
       ${floor.apartments.map(a=>{
@@ -121,13 +121,12 @@ function doorList(obj, block, floor, apt){
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name, click:{page:'objects', objId:obj.id}}, {label:block.name, click:{page:'objects', objId:obj.id, blockId:block.id}}, {label:floor.num+' этаж', click:{page:'objects', objId:obj.id, blockId:block.id, floorId:floor.id}}, {label:'кв. '+apt.num}])}
     <div class="panel-head" style="margin-bottom:14px;">
       <h3>Двери — квартира ${apt.num}</h3>
-      <button class="btn sm" data-create-door='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id})}'>+ Добавить дверь</button>
-      <button class="btn primary sm" data-new-request='${JSON.stringify({objId:obj.id, blockName:block.name, floor:floor.num, apt:apt.num, brigadeId:floor.brigadeId})}'>+ Заявка на материалы</button>
+      ${canManageWorkspace()?`<button class="btn sm" data-create-door='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id})}'>+ Добавить дверь</button><button class="btn primary sm" data-new-request='${JSON.stringify({objId:obj.id, blockName:block.name, floor:floor.num, apt:apt.num, brigadeId:floor.brigadeId})}'>+ Заявка на материалы</button>`:''}
     </div>
     <div class="door-grid">
       ${apt.doors.map(d=>{
         const st=STATUS[d.status];
-        return `<div class="door-card" data-door-status='${JSON.stringify({objId:obj.id, blockId:block.id, floorId:floor.id, aptId:apt.id, doorId:d.id})}'>
+        return `<div class="door-card" ${canManageWorkspace()?`data-door-status='${JSON.stringify({objId:obj.id, blockId:block.id, floorId:floor.id, aptId:apt.id, doorId:d.id})}'`:"style='cursor:default'"}>
           <div class="d-top"><span class="d-name">Дверь №${d.n}</span>${d.photo?'<span title="Есть фото" style="font-size:12px;">📷</span>':''}</div>
           <span class="pill ${st.cls}"><span class="dot ${st.cls}"></span>${st.label}</span>
           ${d.problem?`<div style="font-size:11px;color:var(--bad);margin-top:6px;">${d.problem}</div>`:''}

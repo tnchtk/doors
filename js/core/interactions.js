@@ -25,6 +25,8 @@ function bindPageEvents(){
     });
   });
 
+  if(cloudEnabled&&cloudProfile?.role==='foreman')return;
+
   c.querySelectorAll('[data-door-status]').forEach(el=>{
     el.addEventListener('click', (e)=>openStatusMenu(e, JSON.parse(el.dataset.doorStatus)));
   });

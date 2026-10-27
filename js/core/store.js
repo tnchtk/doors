@@ -7,6 +7,8 @@ const cloudConfig=window.DOORS_CLOUD_CONFIG||{};
 const cloudEnabled=cloudConfig.enabled!==false&&Boolean(cloudConfig.supabaseUrl&&cloudConfig.publishableKey);
 let supabaseClient=null;
 let cloudUser=null;
+let cloudProfile=null;
+function canManageWorkspace(){return !cloudEnabled||['admin','manager'].includes(cloudProfile?.role);}
 let cloudRevision=null;
 let cloudInitialized=!cloudEnabled;
 let cloudStatus=cloudEnabled?'Подключение к общей базе…':'Локальный режим';
@@ -105,17 +107,26 @@ function stopCloudSubscription(){
 }
 
 async function readCloudState(){
-  const {data,error}=await withCloudTimeout(supabaseClient.from('app_state').select('state,revision').eq('id',1).maybeSingle());
-  if(error) throw error;
-  if(!data) throw new Error('Не найдена таблица общей базы. Выполните SQL-схему в Supabase.');
-  state=normalizeCloudState(data.state);
-  cloudRevision=Number(data.revision);
+  if(cloudProfile?.role==='foreman'){
+    const {data,error}=await withCloudTimeout(supabaseClient.rpc('get_foreman_app_state'));
+    if(error) throw error;
+    if(!data?.state) throw new Error('Не удалось загрузить назначенные этажи. Проверьте SQL-миграцию ролей.');
+    state=normalizeCloudState(data.state);
+    cloudRevision=Number(data.revision);
+  }else{
+    const {data,error}=await withCloudTimeout(supabaseClient.from('app_state').select('state,revision').eq('id',1).maybeSingle());
+    if(error) throw error;
+    if(!data) throw new Error('Не найдена таблица общей базы. Выполните SQL-схему в Supabase.');
+    state=normalizeCloudState(data.state);
+    cloudRevision=Number(data.revision);
+  }
   cloudStatus='Общая база подключена';
   cloudError='';
 }
 
 function subscribeToCloudState(){
   stopCloudSubscription();
+  if(cloudProfile?.role==='foreman') return;
   cloudChannel=supabaseClient.channel('doors-shared-state')
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_state',filter:'id=eq.1'},payload=>{
       const incomingRevision=Number(payload.new?.revision||0);
@@ -141,9 +152,10 @@ async function loadCloudState(user){
   cloudLoadPromise=(async()=>{
     state=null;cloudError='';cloudStatus='Загрузка общей базы…';
     try{
-      const {data:profile,error:profileError}=await withCloudTimeout(supabaseClient.from('profiles').select('id').eq('id',user.id).maybeSingle());
+      const {data:profile,error:profileError}=await withCloudTimeout(supabaseClient.from('profiles').select('id,full_name,email,role,is_active,brigade_id').eq('id',user.id).maybeSingle());
       if(profileError)throw profileError;
-      if(!profile)throw new Error('Учетная запись не активирована. Попросите администратора проверить доступ.');
+      if(!profile||!profile.is_active)throw new Error('Учетная запись не активирована. Попросите администратора проверить доступ.');
+      cloudProfile=profile;
       await readCloudState();
       cloudUser=user;
       cloudWriteBlocked=false;
@@ -170,7 +182,7 @@ async function initializeCloud(){
   supabaseClient=window.supabase.createClient(cloudConfig.supabaseUrl,cloudConfig.publishableKey);
   supabaseClient.auth.onAuthStateChange((event,session)=>{
     if(event==='SIGNED_OUT'){
-      stopCloudSubscription();cloudUser=null;state=null;cloudRevision=null;cloudWriteBlocked=false;
+      stopCloudSubscription();cloudUser=null;state=null;cloudRevision=null;cloudProfile=null;cloudWriteBlocked=false;
       cloudStatus='Вход не выполнен';cloudError='';cloudInitialized=true;
       if(typeof render==='function')render();
     }else if(event==='SIGNED_IN'&&session?.user){
@@ -239,6 +251,15 @@ async function persistCloudSnapshot(snapshot){
 
 function saveState(){
   if(!state)return;
+  if(cloudEnabled&&cloudProfile?.role==='foreman'){
+    cloudStatus='Режим просмотра';
+    if(typeof toast==='function')toast('В этом шаге бригадиру доступен просмотр назначенных этажей.');
+    readCloudState().then(()=>{if(typeof render==='function')render();}).catch(error=>{
+      cloudError=error.message||'Не удалось обновить назначенные этажи';
+      if(typeof render==='function')render();
+    });
+    return Promise.resolve(false);
+  }
   const snapshot=JSON.parse(JSON.stringify(state));
   if(cloudEnabled){
     cloudSaveQueue=cloudSaveQueue.then(()=>persistCloudSnapshot(snapshot));
