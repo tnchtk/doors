@@ -6,7 +6,7 @@ function pageReports(){
   const weekFact = Math.round(weekPlan*0.926);
 
   return `
-    ${canManageWorkspace()?avrGeneratorPanel():''}
+      ${canManageWorkspace()?avrGeneratorPanel():''}
     <div class="panel">
       <div class="panel-head"><h3>За сегодня</h3></div>
       <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">Установлено: <strong class="mono" style="color:var(--text)">${state.brigades.reduce((s,b)=>s+installedTodayFor(b.id),0)}</strong> дверей</div>
@@ -45,9 +45,9 @@ function avrGeneratorPanel(){
           <div class="field"><label for="avrBlock">Блок</label><select id="avrBlock" name="block_id" data-avr-block ${state.objects.length?'':'disabled'}>
             <option value="">Весь объект</option>${initialBlocks.map(block=>`<option value="${htmlEscape(block.id)}">${htmlEscape(block.name)}</option>`).join('')}
           </select></div>
-          <div class="field"><label for="avrUnitPrice">Цена за дверь по договору</label><input id="avrUnitPrice" name="unit_price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Необязательно"></div>
+          <div class="field"><label for="avrUnitPrice">Цена монтажа одной двери</label><input id="avrUnitPrice" name="unit_price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="По договору, необязательно"></div>
         </div>
-        <div class="avr-form-foot"><p>В акт попадут только двери со статусом «Принято». Цена и реквизиты остаются пустыми, если их не заполнить.</p><button class="btn primary" type="submit" ${state.objects.length?'':'disabled'}>Сформировать АВР</button></div>
+        <div class="avr-form-foot"><p>В акт попадут только проёмы, принятые менеджером. Количество дверей будет сгруппировано по типу работ и блоку.</p><button class="btn primary" type="submit" ${state.objects.length?'':'disabled'}>Сформировать АВР</button></div>
       </form>
     </section>
   `;
@@ -77,8 +77,8 @@ function bindAvrEvents(container){
     if(unitPrice!==null&&(!Number.isFinite(unitPrice)||unitPrice<0)){toast('Проверьте цену за дверь');return;}
 
     const selectedBlocks=block?[block]:object.blocks;
-    const rows=selectedBlocks.map(item=>({block:item,count:acceptedDoorCount(item)})).filter(row=>row.count>0);
-    if(!rows.length){toast('В выбранном разделе пока нет принятых дверей');return;}
+    const rows=selectedBlocks.flatMap(item=>acceptedRowsForBlock(item)).filter(row=>row.count>0);
+    if(!rows.length){toast('В выбранном разделе пока нет принятых проёмов');return;}
 
     const printWindow=window.open('','_blank');
     if(!printWindow){toast('Разрешите всплывающие окна, чтобы открыть АВР для печати');return;}
@@ -88,12 +88,15 @@ function bindAvrEvents(container){
   });
 }
 
-function acceptedDoorCount(block){
-  let count=0;
-  block.floors.forEach(floor=>floor.apartments.forEach(apartment=>apartment.doors.forEach(door=>{
-    if(door.status==='accepted')count++;
+function acceptedRowsForBlock(block){
+  const groups=new Map();
+  (block.floors||[]).forEach(floor=>(floor.apartments||[]).forEach(apartment=>(apartment.openings||[]).forEach(opening=>{
+    if(!acceptedOpening(opening))return;
+    const type=opening.type||'legacy';
+    const row=groups.get(type)||{block,type,count:0,openingCount:0};
+    row.count+=openingDoorCount(opening);row.openingCount++;groups.set(type,row);
   })));
-  return count;
+  return [...groups.values()];
 }
 
 function avrPrintDocument(object,block,rows,unitPrice){
@@ -102,7 +105,8 @@ function avrPrintDocument(object,block,rows,unitPrice){
   const money=value=>new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
   const bodyRows=rows.map((row,index)=>{
     const amount=unitPrice===null?'':money(row.count*unitPrice);
-    const scope=block?`Установка дверей · ${htmlEscape(block.name)}`:`Установка дверей · ${htmlEscape(row.block.name)}`;
+    const typeLabel={large:'Монтаж дверей со стеклом · большие проёмы',kitchen:'Монтаж кухонных дверей со стеклом',toilet:'Монтаж туалетных дверей с коробкой и порогом',custom:'Монтаж нестандартных дверей',legacy:'Монтаж дверей · старая запись'}[row.type]||'Монтаж дверей';
+    const scope=block?`${typeLabel}`:`${htmlEscape(row.block.name)} · ${typeLabel}`;
     return `<tr><td>${index+1}</td><td>${scope}</td><td>шт.</td><td class="num">${row.count}</td><td class="num">${unitPrice===null?'':money(unitPrice)}</td><td class="num">${amount}</td></tr>`;
   }).join('');
   const totalAmount=unitPrice===null?'':money(total*unitPrice);

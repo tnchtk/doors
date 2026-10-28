@@ -2,9 +2,8 @@ const REQ_STATUS = {new:'Новая', in_progress:'В обработке', colle
 const REQ_STATUS_ORDER = ['new','in_progress','collected','delivered','received'];
 
 function pageSupply(){
-  const doors=allDoors(state);
   const shortageByObj = state.objects.map(o=>{
-    const od=objDoors(state,o.id).map(x=>x.door);
+    const od=openingsForObject(state,o.id).map(item=>item.opening);
     const mt=materialsTable(od).filter(m=>m.missing>0);
     return {o, mt};
   });
@@ -53,7 +52,7 @@ function pageSupply(){
       <table>
         <thead><tr><th>Материал</th><th>Нужно</th><th>Есть</th><th>Не хватает</th><th>Статус</th></tr></thead>
         <tbody>
-          ${materialsTable(doors.map(x=>x.door)).map(m=>`
+          ${materialsTable(allOpenings(state).map(item=>item.opening)).map(m=>`
             <tr>
               <td>${m.name}</td>
               <td class="mono">${m.needed}</td>

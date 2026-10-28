@@ -2,8 +2,7 @@ const PUR_STATUS={created:'Создано', ordered:'Заказано', transit:
 const PUR_STATUS_ORDER=['created','ordered','transit','received'];
 
 function pagePurchases(){
-  const doors=allDoors(state).map(x=>x.door);
-  const shortages=materialsTable(doors).filter(m=>m.missing>0);
+  const shortages=materialsTable(allOpenings(state).map(item=>item.opening)).filter(m=>m.missing>0);
   return `
     <div class="two-col">
       <div class="panel">

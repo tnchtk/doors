@@ -52,7 +52,7 @@ function blockList(obj){
     <div class="panel-head"><h3>Блоки</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-block="${obj.id}">+ Новый блок</button>`:''}</div>
     <div class="card-grid">
       ${obj.blocks.map(b=>{
-        const doors=[]; b.floors.forEach(f=>f.apartments.forEach(a=>a.doors.forEach(d=>doors.push(d))));
+        const doors=[]; b.floors.forEach(f=>f.apartments.forEach(a=>apartmentDoors(a).forEach(item=>doors.push(item.door))));
         const c=countByStatus(doors.map(d=>({door:d}))); const ot=totalCount(c); const done=doneCount(c);
         const pct= ot?Math.round(done/ot*100):0;
         return `<div class="tile" data-open-block="${b.id}">
@@ -74,7 +74,7 @@ function floorList(obj, block){
     <div class="panel-head"><h3>Этажи · ${block.name}</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-floor='${JSON.stringify({objId:obj.id,blockId:block.id})}'>+ Новый этаж</button>`:''}</div>
     <div class="card-grid">
       ${block.floors.map(f=>{
-        const doors=[]; f.apartments.forEach(a=>a.doors.forEach(d=>doors.push(d)));
+        const doors=[]; f.apartments.forEach(a=>apartmentDoors(a).forEach(item=>doors.push(item.door)));
         const c=countByStatus(doors.map(d=>({door:d}))); const ot=totalCount(c); const done=doneCount(c);
         const pct= ot?Math.round(done/ot*100):0;
         const brigade=state.brigades.find(b=>b.id===f.brigadeId);
@@ -101,7 +101,7 @@ function apartmentList(obj, block, floor){
     </div>
     <div class="card-grid">
       ${floor.apartments.map(a=>{
-        const c=countByStatus(a.doors.map(d=>({door:d}))); const ot=totalCount(c); const done=doneCount(c);
+        const c=countByStatus(apartmentDoors(a).map(item=>({door:item.door}))); const ot=totalCount(c); const done=doneCount(c);
         const pct= ot?Math.round(done/ot*100):0;
         return `<div class="tile" data-open-apt="${a.id}">
           <div class="t-name">кв. ${a.num}</div>
@@ -124,7 +124,7 @@ function doorList(obj, block, floor, apt){
       ${canManageWorkspace()?`<button class="btn sm" data-create-door='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id})}'>+ Добавить дверь</button><button class="btn primary sm" data-new-request='${JSON.stringify({objId:obj.id, blockName:block.name, floor:floor.num, apt:apt.num, brigadeId:floor.brigadeId})}'>+ Заявка на материалы</button>`:''}
     </div>
     <div class="door-grid">
-      ${apt.doors.map(d=>{
+      ${apartmentDoors(apt).map(({door:d})=>{
         const st=STATUS[d.status];
         return `<div class="door-card" ${canManageWorkspace()?`data-door-status='${JSON.stringify({objId:obj.id, blockId:block.id, floorId:floor.id, aptId:apt.id, doorId:d.id})}'`:"style='cursor:default'"}>
           <div class="d-top"><span class="d-name">Дверь №${d.n}</span>${d.photo?'<span class="photo-indicator" title="Есть фото"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="15" rx="3"/><circle cx="12" cy="13.5" r="3.5"/><path d="m8 6 1.2-2h5.6L16 6"/></svg></span>':''}</div>

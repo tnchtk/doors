@@ -110,7 +110,7 @@ function readDatabase(db){
 function normalizeCloudState(value){
   const blank=emptyState();
   const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
-  return {
+  return normalizeOpeningState({
     ...blank,...source,
     brigades:Array.isArray(source.brigades)?source.brigades:[],
     objects:Array.isArray(source.objects)?source.objects:[],
@@ -119,7 +119,7 @@ function normalizeCloudState(value){
     movements:Array.isArray(source.movements)?source.movements:[],
     problemsResolved:source.problemsResolved&&typeof source.problemsResolved==='object'?source.problemsResolved:{},
     activityLog:Array.isArray(source.activityLog)?source.activityLog:[],
-  };
+  });
 }
 
 function stopCloudSubscription(){
@@ -300,6 +300,32 @@ function saveState(){
   }).catch(e=>console.warn('database write failed',e));
 }
 
+async function saveForemanOpeningWork(context,opening,submit=false,reportIssue=false){
+  if(!cloudEnabled||cloudProfile?.role!=='foreman'){await saveState();return true;}
+  if(!supabaseClient||cloudRevision===null)throw new Error('Общая база ещё загружается. Повторите попытку.');
+  const {data,error}=await withCloudTimeout(supabaseClient.rpc('save_foreman_opening_work',{
+    p_expected_revision:cloudRevision,
+    p_object_id:context.obj.id,
+    p_block_id:context.block.id,
+    p_floor_id:context.floor.id,
+    p_apartment_id:context.apt.id,
+    p_opening_id:opening.id,
+    p_door_updates:opening.doors.map(door=>({id:door.id,status:door.status,photos:door.photos||[]})),
+    p_foreman_note:opening.foremanNote||'',
+    p_submit:submit,
+    p_report_issue:reportIssue,
+  }));
+  if(error){
+    await readCloudState();
+    if(typeof render==='function')render();
+    if(String(error.message||'').includes('save_foreman_opening_work'))throw new Error('Для записи бригадирских отметок выполните js/data/data-base-photos.sql в Supabase.');
+    throw error;
+  }
+  cloudRevision=Number(data);
+  cloudStatus='Общая база подключена';cloudError='';
+  return true;
+}
+
 if(cloudEnabled){
   state=null;
   dbReady=initializeCloud().catch(error=>{
@@ -308,14 +334,14 @@ if(cloudEnabled){
     return null;
   });
 }else{
-  state=loadLegacyState()||freshState();
+  state=normalizeOpeningState(loadLegacyState()||freshState());
   dbReady=openDatabase().then(async db=>{
     if(!db)return null;
     const stored=await readDatabase(db);
-    if(stored)state=stored;
+    if(stored)state=normalizeOpeningState(stored);
     else{
       const legacy=loadLegacyState();
-      if(legacy)state=legacy;
+      if(legacy)state=normalizeOpeningState(legacy);
       const tx=db.transaction('appState','readwrite');
       tx.objectStore('appState').put({id:'main',data:state,updatedAt:new Date().toISOString()});
     }

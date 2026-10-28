@@ -11,7 +11,7 @@ function exportCSV(kind){
     state.brigades.forEach(b=>{const s=brigadeStats(b.id); rows.push([b.name,b.leader,s.done,s.remaining,s.c.problem,b.pricePerDoor]);});
   } else {
     rows.push(['Материал','Нужно','Есть','Не хватает','Ед.']);
-    materialsTable(allDoors(state).map(x=>x.door)).forEach(m=>rows.push([m.name,m.needed,m.have,m.missing,m.unit]));
+    materialsTable(allOpenings(state).map(item=>item.opening)).forEach(m=>rows.push([m.name,m.needed,m.have,m.missing,m.unit]));
   }
   const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});

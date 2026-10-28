@@ -4,7 +4,10 @@ function pageDashboard(){
   const total=totalCount(c);
   const done=doneCount(c);
   const pct=total?Math.round(done/total*100):0;
-  const problemCount=c.problem;
+  const openingList=allOpenings(state);
+  const returnedOpenings=openingList.filter(item=>item.opening.reviewStatus==='changes_requested').length;
+  const pendingOpenings=openingList.filter(item=>['issue_reported','pending'].includes(item.opening.reviewStatus)).length;
+  const problemCount=c.problem+returnedOpenings;
   const newRequests=state.requests.filter(r=>r.status==='new').length;
   const shortMaterials = materialsTable(doors).filter(m=>m.missing>0);
 
@@ -14,7 +17,8 @@ function pageDashboard(){
     const ot=totalCount(oc);
     const odone=doneCount(oc);
     const opct= ot? Math.round(odone/ot*100):0;
-    return {o,ot,odone,opct,problem:oc.problem};
+    const reviewProblems=openingList.filter(item=>item.obj.id===o.id&&item.opening.reviewStatus==='changes_requested').length;
+    return {o,ot,odone,opct,problem:oc.problem+reviewProblems};
   });
 
   return `
@@ -33,7 +37,7 @@ function pageDashboard(){
       <div class="summary-copy">
         <div class="summary-label">Общий прогресс</div>
         <h3>Установлено ${done.toLocaleString('ru')} из ${total.toLocaleString('ru')} дверей</h3>
-        <p>${problemCount ? `${problemCount} дверей требуют внимания` : 'Замечаний по дверям нет'}</p>
+        <p>${pendingOpenings?`${pendingOpenings} проёмов ожидают ответа или проверки`:'Новых обращений на проверке нет'}${problemCount?` · ${problemCount} требуют доработки`:''}</p>
         <div class="summary-track" aria-hidden="true"><span style="width:${pct}%"></span></div>
       </div>
       <div class="summary-side">
@@ -48,7 +52,8 @@ function pageDashboard(){
       <div class="kpi accent"><div class="val">${total.toLocaleString('ru')}</div><div class="lbl">Всего дверей</div></div>
       <div class="kpi ok"><div class="val">${done.toLocaleString('ru')}</div><div class="lbl">Установлено</div></div>
       <div class="kpi warn"><div class="val">${(total-done-problemCount).toLocaleString('ru')}</div><div class="lbl">Осталось</div></div>
-      <div class="kpi bad"><div class="val">${problemCount}</div><div class="lbl">Проблемных дверей</div></div>
+      <div class="kpi bad"><div class="val">${problemCount}</div><div class="lbl">Открытых замечаний</div></div>
+      <div class="kpi"><div class="val">${pendingOpenings}</div><div class="lbl">Проёмов на проверке</div></div>
       <div class="kpi bad"><div class="val">${shortMaterials.length}</div><div class="lbl">Материалов не хватает</div></div>
     </div>
 
@@ -93,7 +98,7 @@ function pageDashboard(){
         <div class="panel-head" style="margin-top:18px;"><h3>Требует внимания</h3></div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)"><span class="inline-dot bad" aria-hidden="true"></span>Новых заявок от бригад</span><span class="pill ${newRequests?'bad':'neutral'}">${newRequests}</span></div>
-          <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)"><span class="inline-dot warn" aria-hidden="true"></span>Проблемных дверей</span><span class="pill ${problemCount?'bad':'neutral'}">${problemCount}</span></div>
+          <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)"><span class="inline-dot warn" aria-hidden="true"></span>Открытых замечаний</span><span class="pill ${problemCount?'bad':'neutral'}">${problemCount}</span></div>
           <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)"><span class="inline-dot warn" aria-hidden="true"></span>Критический остаток материалов</span><span class="pill ${shortMaterials.length?'warn':'neutral'}">${shortMaterials.length}</span></div>
         </div>
       </div>

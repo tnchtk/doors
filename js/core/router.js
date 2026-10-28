@@ -115,7 +115,7 @@ function render(){
       <div class="content" id="content"></div>
     </div>
   `;
-  document.getElementById('content').innerHTML = `${cloudEnabled?'':localModeNotice()}${cloudEnabled&&cloudProfile?.role==='foreman'?'<div class="local-mode-banner"><strong>Режим бригадира.</strong> Здесь показаны только назначенные бригаде этажи. Отметки установки и фото добавим следующим этапом.</div>':''}${renderPage()}`;
+  document.getElementById('content').innerHTML = `${cloudEnabled?'':localModeNotice()}${cloudEnabled&&cloudProfile?.role==='foreman'?'<div class="local-mode-banner"><strong>Режим бригадира.</strong> Здесь показаны только назначенные бригаде этажи. Вы можете отмечать установку дверей, прикладывать фото и отправлять проёмы менеджеру на проверку.</div>':''}${renderPage()}`;
   bindGlobalEvents();
   bindPageEvents();
 }

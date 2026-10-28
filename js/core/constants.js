@@ -32,15 +32,16 @@ const PROBLEM_TYPES = ['Нет полотна','Нет короба','Непра
 const MATERIALS = [
   {id:'polotno', name:'Дверное полотно', unit:'шт', perDoor:1},
   {id:'korob',   name:'Короб',           unit:'шт', perDoor:1},
-  {id:'dobor',   name:'Добор',           unit:'шт', perDoor:2},
-  {id:'nalich',  name:'Наличник',        unit:'шт', perDoor:2},
-  {id:'petli',   name:'Петли',           unit:'компл', perDoor:1},
+  {id:'dobor',   name:'Добор',           unit:'шт', perDoor:2.5},
+  {id:'nalich',  name:'Наличник',        unit:'шт', perDoor:5},
+  {id:'petli',   name:'Петли',           unit:'шт', perDoor:2},
   {id:'zamok',   name:'Замок',           unit:'шт', perDoor:1},
   {id:'ruchka',  name:'Ручка',           unit:'шт', perDoor:1},
   {id:'planka',  name:'Ответная планка', unit:'шт', perDoor:1},
   {id:'porog',   name:'Порог',           unit:'шт', perDoor:1},
   {id:'krepezh', name:'Крепёж',          unit:'компл', perDoor:1},
-  {id:'pena',    name:'Монтажная пена',  unit:'балл', perDoor:0.5},
+  {id:'pena',    name:'Монтажная пена',  unit:'балл', perDoor:1},
+  {id:'shpingalet',name:'Шпингалет',     unit:'шт', perDoor:0},
 ];
 const MAT_BY_ID = Object.fromEntries(MATERIALS.map(m=>[m.id,m]));
 
