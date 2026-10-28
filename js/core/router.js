@@ -216,6 +216,7 @@ function bindCloudAuthEvents(){
       if(error)throw error;
       cloudRecoveryActive=false;
       await loadCloudState(cloudUser);
+      render();
       if(typeof toast==='function')toast('Пароль успешно обновлён.');
     }catch(error){errorBox.textContent=error.message||'Не удалось сохранить новый пароль.';errorBox.hidden=false;}
     finally{button.disabled=false;button.textContent='Сохранить новый пароль';}
