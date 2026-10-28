@@ -44,7 +44,7 @@ function render(){
   const navItems=navItemsForUser();
   app.innerHTML = `
     ${sidebarOpen?'<div class="backdrop" data-close-sidebar></div>':''}
-    <aside class="sidebar ${sidebarOpen?'open':''}">
+    <aside id="appSidebar" aria-label="Главная навигация" class="sidebar ${sidebarOpen?'open':''}">
       <div class="brand">
         <div class="mark">СМ</div>
         <div>
@@ -74,7 +74,7 @@ function render(){
     </aside>
     <div class="main">
       <div class="topbar">
-        <div class="menu-btn" data-open-sidebar>☰</div>
+        <button class="menu-btn" type="button" data-open-sidebar aria-label="Открыть меню" aria-controls="appSidebar"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
         <div>
           <h1>${pageTitle()}</h1>
           <div class="crumb">${pageCrumb()}</div>
