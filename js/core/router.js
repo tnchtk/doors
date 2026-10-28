@@ -1,6 +1,32 @@
 let route = {page:'dashboard'}; // mutated by nav
 let sidebarOpen=false;
 
+function currentTheme(){
+  return document.documentElement.dataset.theme==='dark'?'dark':'light';
+}
+function themeIcon(theme){
+  return theme==='dark'
+    ? '<svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>'
+    : '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.4 15.4A8.5 8.5 0 0 1 8.6 3.6 8.5 8.5 0 1 0 20.4 15.4Z"/></svg>';
+}
+function themeToggleMarkup(extraClass=''){
+  const theme=currentTheme(),isDark=theme==='dark';
+  const label=isDark?'Включить светлую тему':'Включить тёмную тему';
+  return `<button class="theme-toggle ${extraClass}" type="button" data-theme-toggle aria-label="${label}" title="${label}" aria-pressed="${isDark}">${themeIcon(theme)}</button>`;
+}
+function bindThemeToggle(){
+  document.querySelectorAll('[data-theme-toggle]').forEach(button=>button.addEventListener('click',()=>{
+    const theme=currentTheme()==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=theme;
+    try{localStorage.setItem('doors-theme',theme);}catch(_){}
+    const label=theme==='dark'?'Включить светлую тему':'Включить тёмную тему';
+    button.innerHTML=themeIcon(theme);
+    button.setAttribute('aria-label',label);
+    button.setAttribute('title',label);
+    button.setAttribute('aria-pressed',String(theme==='dark'));
+  }));
+}
+
 const NAV_ITEMS=[
   {id:'dashboard', label:'Дашборд', icon:'dashboard'},
   {id:'objects', label:'Объекты', icon:'objects'},
@@ -75,10 +101,11 @@ function render(){
     <div class="main">
       <div class="topbar">
         <button class="menu-btn" type="button" data-open-sidebar aria-label="Открыть меню" aria-controls="appSidebar"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-        <div>
+        <div class="topbar-title">
           <h1>${pageTitle()}</h1>
           <div class="crumb">${pageCrumb()}</div>
         </div>
+        ${themeToggleMarkup()}
       </div>
       <div class="content" id="content"></div>
     </div>
@@ -91,7 +118,7 @@ function render(){
 function htmlEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function cloudGate(title,message,actions=''){
-  return `<main class="cloud-entry"><section class="cloud-entry-card">
+  return `<main class="cloud-entry">${themeToggleMarkup('cloud-entry-theme')}<section class="cloud-entry-card">
     <div class="brand-mark">СМ</div><h1>${htmlEscape(title)}</h1>
     <p>${htmlEscape(message)}</p>${cloudError?`<div class="cloud-error">${htmlEscape(cloudError)}</div>`:''}
     <div class="cloud-entry-actions">${actions}</div>
@@ -99,7 +126,7 @@ function cloudGate(title,message,actions=''){
 }
 
 function cloudLoginPage(){
-  return `<main class="cloud-entry"><section class="cloud-entry-card">
+  return `<main class="cloud-entry">${themeToggleMarkup('cloud-entry-theme')}<section class="cloud-entry-card">
     <div class="brand-mark">СМ</div><h1>Вход в СметаДверь</h1>
     <p>Войдите в общую базу компании. Учетные записи выдает администратор.</p>
     ${cloudError?`<div class="cloud-error">${htmlEscape(cloudError)}</div>`:''}
@@ -118,6 +145,7 @@ function localModeNotice(){
 }
 
 function bindCloudAuthEvents(){
+  bindThemeToggle();
   const form=document.getElementById('cloudLoginForm');
   form?.addEventListener('submit',async e=>{
     e.preventDefault();
