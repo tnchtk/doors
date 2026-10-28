@@ -148,14 +148,18 @@ function cloudLoginPage(){
 }
 
 function cloudPasswordRecoveryPage(){
+  const isInvite=cloudPasswordSetupMode==='invite';
+  const title=isInvite?'Создать пароль':'Новый пароль';
+  const description=isInvite?'Придумайте пароль для входа. Он будет использоваться при следующих посещениях.':'Придумайте новый пароль для своей учетной записи.';
+  const submitLabel=isInvite?'Создать пароль':'Сохранить новый пароль';
   return `<main class="cloud-entry">${themeToggleMarkup('cloud-entry-theme')}<section class="cloud-entry-card">
-    <div class="brand-mark">СМ</div><h1>Новый пароль</h1>
-    <p>Придумайте новый пароль для своей учетной записи.</p>
+    <div class="brand-mark">СМ</div><h1>${title}</h1>
+    <p>${description}</p>
     <form id="cloudPasswordForm">
-      <div class="field"><label for="cloudNewPassword">Новый пароль</label><input id="cloudNewPassword" name="password" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="field"><label for="cloudNewPassword">${isInvite?'Пароль для входа':'Новый пароль'}</label><input id="cloudNewPassword" name="password" type="password" autocomplete="new-password" minlength="8" required></div>
       <div class="field"><label for="cloudConfirmPassword">Повторите пароль</label><input id="cloudConfirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></div>
       <div class="cloud-error" id="cloudPasswordError" role="alert" hidden></div>
-      <button class="btn primary" type="submit">Сохранить новый пароль</button>
+      <button class="btn primary" type="submit">${submitLabel}</button>
       <button class="btn ghost auth-recovery-link" type="button" data-cancel-password-recovery>Вернуться ко входу</button>
     </form>
     <div class="cloud-entry-foot">Пароль должен содержать не менее 8 символов.</div>
@@ -204,6 +208,7 @@ function bindCloudAuthEvents(){
   passwordForm?.addEventListener('submit',async e=>{
     e.preventDefault();
     const button=passwordForm.querySelector('[type="submit"]');
+    const submitLabel=cloudPasswordSetupMode==='invite'?'Создать пароль':'Сохранить новый пароль';
     const errorBox=document.getElementById('cloudPasswordError');
     const values=Object.fromEntries(new FormData(passwordForm).entries());
     errorBox.hidden=true;errorBox.textContent='';
@@ -214,12 +219,14 @@ function bindCloudAuthEvents(){
     try{
       const {error}=await withCloudTimeout(supabaseClient.auth.updateUser({password:values.password}));
       if(error)throw error;
+      const wasInvite=cloudPasswordSetupMode==='invite';
       cloudRecoveryActive=false;
+      cloudPasswordSetupMode='recovery';
       await loadCloudState(cloudUser);
       render();
-      if(typeof toast==='function')toast('Пароль успешно обновлён.');
+      if(typeof toast==='function')toast(wasInvite?'Пароль создан. Теперь можно войти.':'Пароль успешно обновлён.');
     }catch(error){errorBox.textContent=error.message||'Не удалось сохранить новый пароль.';errorBox.hidden=false;}
-    finally{button.disabled=false;button.textContent='Сохранить новый пароль';}
+    finally{button.disabled=false;button.textContent=submitLabel;}
   });
   document.querySelector('[data-cancel-password-recovery]')?.addEventListener('click',async()=>{
     try{await cloudSignOut();}

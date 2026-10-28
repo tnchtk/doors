@@ -32,7 +32,7 @@ function pageAdmin(){
     </div>
     ${cloudEnabled?`
     <div class="panel"><div class="panel-head"><div><h3>Сотрудники и роли</h3><span class="hint">${activeProfiles} из 10 активных учетных записей</span></div><button class="btn primary sm" data-admin-invite>+ Пригласить сотрудника</button></div>
-      <p class="admin-note">Приглашение отправит сотруднику письмо для входа. После приглашения назначьте роль и для бригадира выберите его бригаду.</p>
+      <p class="admin-note">Сотрудник создаст пароль по ссылке из письма. После приглашения назначьте роль и при необходимости выберите бригаду.</p>
       <div id="adminTeamArea">${adminTeamTable(adminProfilesCache)}</div>
     </div>`:`<div class="panel"><div class="panel-head"><h3>Сотрудники и роли</h3></div><p class="admin-note admin-warning">Управление учетными записями доступно после подключения Supabase.</p></div>`}
     <div class="panel"><div class="panel-head"><h3>Резервные копии</h3></div>
