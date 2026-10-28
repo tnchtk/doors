@@ -26,6 +26,21 @@ function pageDashboard(){
       </div>
       <div class="dashboard-date">${new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</div>
     </div>
+    <section class="dashboard-summary" aria-label="Общий прогресс монтажа">
+      <div class="readiness-ring" style="--progress:${pct}%" role="img" aria-label="Готово ${pct}%">
+        <span><strong>${pct}%</strong><small>готово</small></span>
+      </div>
+      <div class="summary-copy">
+        <div class="summary-label">Общий прогресс</div>
+        <h3>Установлено ${done.toLocaleString('ru')} из ${total.toLocaleString('ru')} дверей</h3>
+        <p>${problemCount ? `${problemCount} дверей требуют внимания` : 'Замечаний по дверям нет'}</p>
+        <div class="summary-track" aria-hidden="true"><span style="width:${pct}%"></span></div>
+      </div>
+      <div class="summary-side">
+        <div class="summary-stat"><span>Объектов</span><strong>${state.objects.length}</strong></div>
+        <div class="summary-stat"><span>Бригад</span><strong>${state.brigades.length}</strong></div>
+      </div>
+    </section>
     <div class="kpi-grid">
       <div class="kpi"><div class="val">${state.objects.length}</div><div class="lbl">Объектов</div></div>
       <div class="kpi"><div class="val">${state.objects.reduce((s,o)=>s+o.blocks.length,0)}</div><div class="lbl">Блоков</div></div>
