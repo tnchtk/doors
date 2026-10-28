@@ -149,3 +149,7 @@
 @media (max-width: 420px) {
   .theme-toggle { width: 40px; height: 40px; border-radius: 13px; }
 }
+
+:root[data-theme="dark"] .cloud-success { border-color: #526740; background: #2a3826; color: #d2edb4; }
+:root[data-theme="dark"] .auth-recovery-link { color: #c0beff; }
+:root[data-theme="dark"] .auth-recovery-link:hover { color: #dfdeff; }

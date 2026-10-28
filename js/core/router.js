@@ -52,6 +52,11 @@ function nameOfPage(p){return (NAV_ITEMS.find(n=>n.id===p)||{}).label||'';}
 
 function render(){
   const app=document.getElementById('app');
+  if(cloudEnabled&&cloudRecoveryActive){
+    app.innerHTML=cloudPasswordRecoveryPage();
+    bindCloudAuthEvents();
+    return;
+  }
   if(cloudEnabled&&!cloudInitialized){
     app.innerHTML=cloudGate('Подключаем общую базу', 'Проверяем вход и загружаем данные…');
     return;
@@ -134,9 +139,26 @@ function cloudLoginPage(){
       <div class="field"><label for="cloudEmail">Электронная почта</label><input id="cloudEmail" name="email" type="email" autocomplete="username" required></div>
       <div class="field"><label for="cloudPassword">Пароль</label><input id="cloudPassword" name="password" type="password" autocomplete="current-password" required></div>
       <div class="cloud-error" id="cloudLoginError" role="alert" hidden></div>
+      <div class="cloud-success" id="cloudLoginMessage" role="status" hidden></div>
       <button class="btn primary" type="submit">Войти</button>
+      <button class="btn ghost auth-recovery-link" id="cloudForgotPassword" type="button">Забыли пароль?</button>
     </form>
     <div class="cloud-entry-foot">Связь с общей базой защищена учетной записью сотрудника.</div>
+  </section></main>`;
+}
+
+function cloudPasswordRecoveryPage(){
+  return `<main class="cloud-entry">${themeToggleMarkup('cloud-entry-theme')}<section class="cloud-entry-card">
+    <div class="brand-mark">СМ</div><h1>Новый пароль</h1>
+    <p>Придумайте новый пароль для своей учетной записи.</p>
+    <form id="cloudPasswordForm">
+      <div class="field"><label for="cloudNewPassword">Новый пароль</label><input id="cloudNewPassword" name="password" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="field"><label for="cloudConfirmPassword">Повторите пароль</label><input id="cloudConfirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="cloud-error" id="cloudPasswordError" role="alert" hidden></div>
+      <button class="btn primary" type="submit">Сохранить новый пароль</button>
+      <button class="btn ghost auth-recovery-link" type="button" data-cancel-password-recovery>Вернуться ко входу</button>
+    </form>
+    <div class="cloud-entry-foot">Пароль должен содержать не менее 8 символов.</div>
   </section></main>`;
 }
 
@@ -147,6 +169,26 @@ function localModeNotice(){
 function bindCloudAuthEvents(){
   bindThemeToggle();
   const form=document.getElementById('cloudLoginForm');
+  const forgotButton=document.getElementById('cloudForgotPassword');
+  forgotButton?.addEventListener('click',async()=>{
+    const emailInput=document.getElementById('cloudEmail');
+    const errorBox=document.getElementById('cloudLoginError');
+    const messageBox=document.getElementById('cloudLoginMessage');
+    const email=emailInput.value.trim();
+    messageBox.hidden=true;messageBox.textContent='';errorBox.hidden=true;errorBox.textContent='';
+    if(!email||!emailInput.checkValidity()){
+      errorBox.textContent='Введите корректный адрес электронной почты.';errorBox.hidden=false;emailInput.focus();return;
+    }
+    forgotButton.disabled=true;forgotButton.textContent='Отправляем ссылку…';
+    try{
+      const redirectTo=cloudConfig.passwordRedirectUrl||`${window.location.origin}${window.location.pathname}`;
+      const {error}=await withCloudTimeout(supabaseClient.auth.resetPasswordForEmail(email,{redirectTo}));
+      if(error)throw error;
+      messageBox.textContent='Если учетная запись с этим адресом существует, на почту придет ссылка для смены пароля.';
+      messageBox.hidden=false;
+    }catch(error){errorBox.textContent=error.message||'Не удалось отправить ссылку для сброса.';errorBox.hidden=false;}
+    finally{forgotButton.disabled=false;forgotButton.textContent='Забыли пароль?';}
+  });
   form?.addEventListener('submit',async e=>{
     e.preventDefault();
     const button=form.querySelector('[type="submit"]');
@@ -157,6 +199,30 @@ function bindCloudAuthEvents(){
     try{await cloudSignIn(values.email.trim(),values.password);}
     catch(error){errorBox.textContent=error.message||'Не удалось войти';errorBox.hidden=false;}
     finally{button.disabled=false;button.textContent='Войти';}
+  });
+  const passwordForm=document.getElementById('cloudPasswordForm');
+  passwordForm?.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const button=passwordForm.querySelector('[type="submit"]');
+    const errorBox=document.getElementById('cloudPasswordError');
+    const values=Object.fromEntries(new FormData(passwordForm).entries());
+    errorBox.hidden=true;errorBox.textContent='';
+    if(String(values.password).length<8){errorBox.textContent='Пароль должен содержать не менее 8 символов.';errorBox.hidden=false;return;}
+    if(values.password!==values.confirmPassword){errorBox.textContent='Пароли не совпадают.';errorBox.hidden=false;return;}
+    if(!cloudUser){errorBox.textContent='Ссылка восстановления истекла. Запросите новую.';errorBox.hidden=false;return;}
+    button.disabled=true;button.textContent='Сохраняем…';
+    try{
+      const {error}=await withCloudTimeout(supabaseClient.auth.updateUser({password:values.password}));
+      if(error)throw error;
+      cloudRecoveryActive=false;
+      await loadCloudState(cloudUser);
+      if(typeof toast==='function')toast('Пароль успешно обновлён.');
+    }catch(error){errorBox.textContent=error.message||'Не удалось сохранить новый пароль.';errorBox.hidden=false;}
+    finally{button.disabled=false;button.textContent='Сохранить новый пароль';}
+  });
+  document.querySelector('[data-cancel-password-recovery]')?.addEventListener('click',async()=>{
+    try{await cloudSignOut();}
+    catch(error){if(typeof toast==='function')toast(error.message||'Не удалось вернуться ко входу.');}
   });
   document.querySelectorAll('[data-cloud-signout]').forEach(button=>button.addEventListener('click',async()=>{
     button.disabled=true;

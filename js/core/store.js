@@ -7,6 +7,7 @@ const cloudConfig=window.DOORS_CLOUD_CONFIG||{};
 const cloudEnabled=cloudConfig.enabled!==false&&Boolean(cloudConfig.supabaseUrl&&cloudConfig.publishableKey);
 let supabaseClient=null;
 let cloudUser=null;
+let cloudRecoveryActive=false;
 let cloudProfile=null;
 function canManageWorkspace(){return !cloudEnabled||['admin','manager'].includes(cloudProfile?.role);}
 let cloudRevision=null;
@@ -182,11 +183,14 @@ async function initializeCloud(){
   supabaseClient=window.supabase.createClient(cloudConfig.supabaseUrl,cloudConfig.publishableKey);
   supabaseClient.auth.onAuthStateChange((event,session)=>{
     if(event==='SIGNED_OUT'){
-      stopCloudSubscription();cloudUser=null;state=null;cloudRevision=null;cloudProfile=null;cloudWriteBlocked=false;
+      cloudRecoveryActive=false;stopCloudSubscription();cloudUser=null;state=null;cloudRevision=null;cloudProfile=null;cloudWriteBlocked=false;
       cloudStatus='Вход не выполнен';cloudError='';cloudInitialized=true;
       if(typeof render==='function')render();
+    }else if(event==='PASSWORD_RECOVERY'&&session?.user){
+      cloudRecoveryActive=true;cloudUser=session.user;state=null;cloudError='';cloudStatus='Восстановление пароля';cloudInitialized=true;
+      if(typeof render==='function')render();
     }else if(event==='SIGNED_IN'&&session?.user){
-      setTimeout(()=>{if(cloudUser?.id!==session.user.id)loadCloudState(session.user);},0);
+      setTimeout(()=>{if(!cloudRecoveryActive&&cloudUser?.id!==session.user.id)loadCloudState(session.user);},0);
     }
   });
   const {data,error}=await withCloudTimeout(supabaseClient.auth.getSession());
