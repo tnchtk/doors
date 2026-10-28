@@ -8,6 +8,10 @@ function bindPageEvents(){
 
   c.querySelector('[data-create-object]')?.addEventListener('click',createNewObject);
   c.querySelectorAll('[data-create-block]').forEach(el=>el.addEventListener('click',()=>createNewBlock(el.dataset.createBlock)));
+  c.querySelectorAll('[data-edit-block]').forEach(el=>el.addEventListener('click',event=>{
+    event.stopPropagation();
+    editExistingBlock(JSON.parse(el.dataset.editBlock));
+  }));
   c.querySelectorAll('[data-create-floor]').forEach(el=>el.addEventListener('click',()=>createNewFloor(JSON.parse(el.dataset.createFloor))));
   c.querySelectorAll('[data-create-apartment]').forEach(el=>el.addEventListener('click',()=>createNewApartment(JSON.parse(el.dataset.createApartment))));
   c.querySelectorAll('[data-create-door]').forEach(el=>el.addEventListener('click',()=>createNewDoor(JSON.parse(el.dataset.createDoor))));

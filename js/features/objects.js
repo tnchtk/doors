@@ -62,6 +62,7 @@ function blockList(obj){
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
             <span class="t-pct">${pct}%</span>
           </div>
+          ${canManageWorkspace()?`<div class="block-tile-actions"><button type="button" class="btn sm" data-edit-block='${JSON.stringify({objId:obj.id,blockId:b.id})}'>Изменить блок</button></div>`:''}
         </div>`;
       }).join('')}
     </div>

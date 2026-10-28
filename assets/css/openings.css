@@ -70,6 +70,13 @@
 .opening-template-note{margin:0;padding:12px 14px;border-radius:12px;background:var(--accent-soft);color:var(--text-dim);font-size:12px;line-height:1.55}
 .apartment-template-modal .modal-actions{display:flex;justify-content:flex-end;gap:8px}
 .opening-photo-button:hover,.opening-actions .btn:hover{transition:background .25s ease,border-color .25s ease,transform .25s ease}
+.block-tile-actions{display:flex;justify-content:flex-end;margin-top:14px}
+.admin-block-list{display:grid;gap:7px;min-width:180px}
+.admin-block-item,.admin-profile-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.admin-block-item{padding:6px 8px;border:1px solid var(--line-soft);border-radius:10px;background:var(--bg-2)}
+.admin-profile-actions{flex-wrap:wrap}
+.btn.danger{border-color:var(--bad-dim);color:var(--bad)}
+.btn.danger:hover{background:var(--bad-dim);border-color:var(--bad)}
 @media(min-width:720px){
   .opening-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));align-items:start}
   .opening-doors{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}

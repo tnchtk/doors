@@ -20,8 +20,8 @@ function pageAdmin(){
       ${state.objects.map(o=>{
         const apartments=o.blocks.reduce((n,b)=>n+b.floors.reduce((x,f)=>x+f.apartments.length,0),0);
         const doors=o.blocks.reduce((n,b)=>n+b.floors.reduce((x,f)=>x+f.apartments.reduce((y,a)=>y+apartmentDoors(a).length,0),0),0);
-        const blockNames=o.blocks.length?o.blocks.map(b=>adminEsc(b.name)).join(', '):'Пока нет блоков';
-        return `<tr><td>${adminEsc(o.name)}</td><td><span class="hint">${blockNames}</span></td><td>${apartments}</td><td>${doors}</td><td><div class="admin-actions"><button class="btn sm" data-admin-add-block="${adminEsc(o.id)}">+ Блок</button><button class="btn sm" data-admin-edit-object="${adminEsc(o.id)}">Изменить</button></div></td></tr>`;
+        const blockNames=o.blocks.length?`<div class="admin-block-list">${o.blocks.map(b=>`<span class="admin-block-item"><span>${adminEsc(b.name)}</span><button class="btn sm" data-admin-edit-block='${adminEsc(JSON.stringify({objId:o.id,blockId:b.id}))}'>Изменить</button></span>`).join('')}</div>`:'Пока нет блоков';
+        return `<tr><td>${adminEsc(o.name)}</td><td>${blockNames}</td><td>${apartments}</td><td>${doors}</td><td><div class="admin-actions"><button class="btn sm" data-admin-add-block="${adminEsc(o.id)}">+ Блок</button><button class="btn sm" data-admin-edit-object="${adminEsc(o.id)}">Изменить</button></div></td></tr>`;
       }).join('')||'<tr><td colspan="5"><div class="empty">Объектов пока нет. Создайте первый объект.</div></td></tr>'}
       </tbody></table></div>
     </div>
@@ -47,12 +47,12 @@ function adminTeamTable(profiles){
   if(profiles===null)return '<div class="empty">Загружаем сотрудников…</div>';
   if(!profiles.length)return '<div class="empty">Сотрудников пока нет.</div>';
   const roleLabel={admin:'Администратор',manager:'Менеджер',foreman:'Бригадир'};
-  return `<div class="tbl-wrap"><table><thead><tr><th>Сотрудник</th><th>Роль</th><th>Бригада</th><th>Доступ</th></tr></thead><tbody>
+  return `<div class="tbl-wrap"><table><thead><tr><th>Сотрудник</th><th>Роль</th><th>Бригада</th><th>Доступ и действия</th></tr></thead><tbody>
   ${profiles.map(profile=>`<tr>
     <td><strong>${adminEsc(profile.full_name||'Сотрудник')}</strong><div class="hint">${adminEsc(profile.email||'')}</div></td>
     <td><select class="admin-select" data-admin-role="${adminEsc(profile.id)}" aria-label="Роль сотрудника ${adminEsc(profile.full_name)}">${Object.entries(roleLabel).map(([value,label])=>`<option value="${value}" ${profile.role===value?'selected':''}>${label}</option>`).join('')}</select></td>
     <td><select class="admin-select" data-admin-brigade="${adminEsc(profile.id)}" aria-label="Бригада сотрудника ${adminEsc(profile.full_name)}"><option value="">Не назначена</option>${state.brigades.map(brigade=>`<option value="${adminEsc(brigade.id)}" ${profile.brigade_id===brigade.id?'selected':''}>${adminEsc(brigade.name)}</option>`).join('')}</select></td>
-    <td><button class="btn sm ${profile.is_active?'':'ghost'}" data-admin-toggle-active="${adminEsc(profile.id)}" data-active="${profile.is_active?'1':'0'}">${profile.is_active?'Активен':'Отключён'}</button></td>
+    <td><div class="admin-profile-actions"><button class="btn sm ${profile.is_active?'':'ghost'}" data-admin-toggle-active="${adminEsc(profile.id)}" data-active="${profile.is_active?'1':'0'}">${profile.is_active?'Отключить':'Включить'}</button>${profile.role==='manager'?`<button class="btn sm danger" data-admin-delete-manager="${adminEsc(profile.id)}" data-manager-name="${adminEsc(profile.full_name||profile.email||'Сотрудник')}">Удалить</button>`:''}</div></td>
   </tr>`).join('')}
   </tbody></table></div>`;
 }
@@ -113,11 +113,26 @@ async function saveAdminProfile(container,id,changes){
   return true;
 }
 
+function editExistingBlock(ids){
+  const object=state.objects.find(item=>item.id===ids.objId),block=object?.blocks.find(item=>item.id===ids.blockId);
+  if(!object||!block)return;
+  openAdminEditModal({title:`Изменить блок · ${block.name}`,fields:[{id:'name',label:'Название блока',value:block.name,required:true}],onSave:async values=>{
+    const name=values.name.trim();
+    if(!name){toast('Название не может быть пустым');return false;}
+    if(object.blocks.some(item=>item.id!==block.id&&item.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){toast('В этом объекте уже есть блок с таким названием');return false;}
+    block.name=name;
+    await saveState();
+    if(cloudEnabled&&cloudWriteBlocked)throw new Error('Блок не сохранён. Обновите данные и повторите попытку.');
+    render();toast('Блок обновлён');return true;
+  }});
+}
+
 async function bindAdminEvents(container){
   const status=container.querySelector('#dbStatus');
   if(status) status.textContent=cloudEnabled?cloudStatus:await dbReady.then(db=>db?'Подключена':'LocalStorage');
   if(cloudEnabled)loadAdminProfiles(container);
   container.querySelectorAll('[data-admin-add-block]').forEach(btn=>btn.addEventListener('click',()=>createNewBlock(btn.dataset.adminAddBlock)));
+  container.querySelectorAll('[data-admin-edit-block]').forEach(btn=>btn.addEventListener('click',()=>editExistingBlock(JSON.parse(btn.dataset.adminEditBlock))));
   container.querySelectorAll('[data-admin-edit-object]').forEach(btn=>btn.addEventListener('click',()=>{
     const obj=state.objects.find(x=>x.id===btn.dataset.adminEditObject);if(!obj)return;
     openAdminEditModal({title:'Изменить объект',fields:[{id:'name',label:'Название объекта',value:obj.name,required:true}],onSave:values=>{
@@ -167,6 +182,23 @@ async function bindAdminEvents(container){
     const id=button.dataset.adminToggleActive,active=button.dataset.active!=='1';
     try{await saveAdminProfile(container,id,{is_active:active});}
     catch(error){toast(error.message||'Не удалось изменить доступ');await loadAdminProfiles(container);}
+  }));
+  container.querySelectorAll('[data-admin-delete-manager]').forEach(button=>button.addEventListener('click',async()=>{
+    const id=button.dataset.adminDeleteManager,name=button.dataset.managerName||'этого менеджера';
+    if(!confirm(`Удалить учётную запись менеджера «${name}»? Он больше не сможет войти. Его запись будет удалена из Supabase.`))return;
+    button.disabled=true;
+    try{
+      const {data,error}=await supabaseClient.functions.invoke('delete-manager',{body:{user_id:id}});
+      if(error){
+        let message=error.message||'Не удалось удалить менеджера';
+        try{const details=await error.context?.json();if(details?.error)message=details.error;}catch{}
+        if(error.context?.status===404||message.includes('delete-manager')&&(message.includes('not found')||message.includes('schema cache')))message='Сначала разверните функцию delete-manager в проекте Supabase.';
+        throw new Error(message);
+      }
+      if(data?.error)throw new Error(data.error);
+      adminProfilesCache=(adminProfilesCache||[]).filter(profile=>profile.id!==id);
+      render();toast(`Менеджер «${name}» удалён`);
+    }catch(error){toast(error.message||'Не удалось удалить менеджера');button.disabled=false;}
   }));
   container.querySelector('[data-admin-backup]')?.addEventListener('click',()=>adminSaveFile(`doorscrm-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({format:'doorscrm-backup',version:1,exportedAt:new Date().toISOString(),state},null,2),'application/json'));
   container.querySelector('#adminImport')?.addEventListener('change',async e=>{
