@@ -1,0 +1,18 @@
+.avr-generator { border-color:rgba(133,203,50,.26); }
+.avr-generator .panel-head { margin-bottom:18px; }
+.avr-controls { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+.avr-controls .field { display:grid; align-content:start; gap:7px; }
+.avr-controls label { color:var(--text-dim); font-size:12px; font-weight:500; }
+.avr-controls input,
+.avr-controls select { width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--bg-1); color:var(--text); font:inherit; font-size:13px; }
+.avr-controls input:focus,
+.avr-controls select:focus { border-color:var(--accent-dim); outline:3px solid var(--accent-soft); }
+.avr-form-foot { display:flex; flex-direction:column; align-items:stretch; gap:12px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line-soft); }
+.avr-form-foot p { margin:0; color:var(--text-faint); font-size:12px; line-height:1.5; }
+.avr-form-foot .btn { min-height:44px; }
+@media (min-width:700px) {
+  .avr-controls { grid-template-columns:minmax(180px,1.2fr) minmax(150px,.9fr) minmax(170px,.9fr); gap:16px; }
+  .avr-form-foot { flex-direction:row; align-items:center; justify-content:space-between; gap:20px; }
+  .avr-form-foot p { max-width:600px; }
+  .avr-form-foot .btn { flex:none; }
+}

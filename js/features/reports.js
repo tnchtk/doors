@@ -6,6 +6,7 @@ function pageReports(){
   const weekFact = Math.round(weekPlan*0.926);
 
   return `
+    ${canManageWorkspace()?avrGeneratorPanel():''}
     <div class="panel">
       <div class="panel-head"><h3>За сегодня</h3></div>
       <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;">Установлено: <strong class="mono" style="color:var(--text)">${state.brigades.reduce((s,b)=>s+installedTodayFor(b.id),0)}</strong> дверей</div>
@@ -16,17 +17,121 @@ function pageReports(){
       <div class="panel-head"><h3>За неделю</h3></div>
       <div class="reqline"><span>План</span><strong class="mono">${weekPlan}</strong></div>
       <div class="reqline"><span>Факт</span><strong class="mono">${weekFact}</strong></div>
-      <div class="reqline"><span>Выполнение</span><strong class="mono" style="color:var(--ok)">${Math.round(weekFact/weekPlan*1000)/10}%</strong></div>
+      <div class="reqline"><span>Выполнение</span><strong class="mono" style="color:var(--ok)">${weekPlan?Math.round(weekFact/weekPlan*1000)/10:0}%</strong></div>
     </div>
 
     <div class="panel">
-      <div class="panel-head"><h3>Экспорт</h3><span class="hint">демо-прототип — экспорт формирует файл на основе текущих данных</span></div>
+      <div class="panel-head"><h3>Экспорт</h3><span class="hint">Экспорт формирует файл на основе текущих данных</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn" data-export="csv">⬇ Выгрузить CSV по объектам</button>
-        <button class="btn" data-export="brigades">⬇ Выгрузить CSV по бригадам</button>
-        <button class="btn" data-export="materials">⬇ Выгрузить CSV по материалам</button>
+        <button class="btn" data-export="csv">Выгрузить CSV по объектам</button>
+        <button class="btn" data-export="brigades">Выгрузить CSV по бригадам</button>
+        <button class="btn" data-export="materials">Выгрузить CSV по материалам</button>
       </div>
     </div>
   `;
 }
 
+function avrGeneratorPanel(){
+  const firstObject=state.objects[0];
+  const initialBlocks=firstObject?.blocks||[];
+  return `
+    <section class="panel avr-generator" aria-label="Генерация акта выполненных работ">
+      <div class="panel-head"><div><h3>Акт выполненных работ (АВР)</h3><span class="hint">Сформируйте акт по всему объекту или одному блоку</span></div></div>
+      <form data-avr-form>
+        <div class="avr-controls">
+          <div class="field"><label for="avrObject">Объект</label><select id="avrObject" name="object_id" data-avr-object required ${state.objects.length?'':'disabled'}>
+            ${state.objects.map(object=>`<option value="${htmlEscape(object.id)}">${htmlEscape(object.name)}</option>`).join('')||'<option value="">Сначала добавьте объект</option>'}
+          </select></div>
+          <div class="field"><label for="avrBlock">Блок</label><select id="avrBlock" name="block_id" data-avr-block ${state.objects.length?'':'disabled'}>
+            <option value="">Весь объект</option>${initialBlocks.map(block=>`<option value="${htmlEscape(block.id)}">${htmlEscape(block.name)}</option>`).join('')}
+          </select></div>
+          <div class="field"><label for="avrUnitPrice">Цена за дверь по договору</label><input id="avrUnitPrice" name="unit_price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Необязательно"></div>
+        </div>
+        <div class="avr-form-foot"><p>В акт попадут только двери со статусом «Принято». Цена и реквизиты остаются пустыми, если их не заполнить.</p><button class="btn primary" type="submit" ${state.objects.length?'':'disabled'}>Сформировать АВР</button></div>
+      </form>
+    </section>
+  `;
+}
+
+function bindAvrEvents(container){
+  if(!canManageWorkspace())return;
+  const form=container.querySelector('[data-avr-form]');
+  if(!form)return;
+  const objectSelect=form.querySelector('[data-avr-object]');
+  const blockSelect=form.querySelector('[data-avr-block]');
+
+  objectSelect.addEventListener('change',()=>{
+    const object=state.objects.find(item=>item.id===objectSelect.value);
+    blockSelect.innerHTML=`<option value="">Весь объект</option>${(object?.blocks||[]).map(block=>`<option value="${htmlEscape(block.id)}">${htmlEscape(block.name)}</option>`).join('')}`;
+  });
+
+  form.addEventListener('submit',event=>{
+    event.preventDefault();
+    const values=Object.fromEntries(new FormData(form).entries());
+    const object=state.objects.find(item=>item.id===values.object_id);
+    if(!object){toast('Выберите объект');return;}
+    const block=values.block_id?object.blocks.find(item=>item.id===values.block_id):null;
+    if(values.block_id&&!block){toast('Выберите блок из этого объекта');return;}
+    const rawPrice=String(values.unit_price||'').trim();
+    const unitPrice=rawPrice===''?null:Number(rawPrice);
+    if(unitPrice!==null&&(!Number.isFinite(unitPrice)||unitPrice<0)){toast('Проверьте цену за дверь');return;}
+
+    const selectedBlocks=block?[block]:object.blocks;
+    const rows=selectedBlocks.map(item=>({block:item,count:acceptedDoorCount(item)})).filter(row=>row.count>0);
+    if(!rows.length){toast('В выбранном разделе пока нет принятых дверей');return;}
+
+    const printWindow=window.open('','_blank');
+    if(!printWindow){toast('Разрешите всплывающие окна, чтобы открыть АВР для печати');return;}
+    printWindow.document.open();
+    printWindow.document.write(avrPrintDocument(object,block,rows,unitPrice));
+    printWindow.document.close();
+  });
+}
+
+function acceptedDoorCount(block){
+  let count=0;
+  block.floors.forEach(floor=>floor.apartments.forEach(apartment=>apartment.doors.forEach(door=>{
+    if(door.status==='accepted')count++;
+  })));
+  return count;
+}
+
+function avrPrintDocument(object,block,rows,unitPrice){
+  const total=rows.reduce((sum,row)=>sum+row.count,0);
+  const date=new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+  const money=value=>new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value);
+  const bodyRows=rows.map((row,index)=>{
+    const amount=unitPrice===null?'':money(row.count*unitPrice);
+    const scope=block?`Установка дверей · ${htmlEscape(block.name)}`:`Установка дверей · ${htmlEscape(row.block.name)}`;
+    return `<tr><td>${index+1}</td><td>${scope}</td><td>шт.</td><td class="num">${row.count}</td><td class="num">${unitPrice===null?'':money(unitPrice)}</td><td class="num">${amount}</td></tr>`;
+  }).join('');
+  const totalAmount=unitPrice===null?'':money(total*unitPrice);
+  const blockLabel=block?htmlEscape(block.name):'Все блоки объекта';
+
+  return `<!doctype html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>АВР · ${htmlEscape(object.name)}</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;background:#f2f2f2;color:#202020;font-family:Arial,"Helvetica Neue",sans-serif;font-size:12pt;line-height:1.45}.sheet{width:min(210mm,100%);min-height:297mm;margin:24px auto;padding:18mm 17mm;background:#fff;box-shadow:0 5px 24px rgba(0,0,0,.12)}h1{margin:0;text-align:center;font-size:18pt;line-height:1.2;letter-spacing:.025em} .subtitle{text-align:center;margin:5px 0 20px;font-size:11pt}.act-date{text-align:right;margin-bottom:18px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:9px 24px;margin-bottom:18px}.meta p{margin:0}.meta .wide{grid-column:1/-1}.line{display:inline-block;min-width:85px;border-bottom:1px solid #777}.line.long{min-width:210px}.table-wrap{width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:10pt}th,td{border:1px solid #777;padding:8px 7px;vertical-align:top}th{background:#f0f0f0;text-align:center;font-weight:600}td:first-child,td:nth-child(3){text-align:center}td.num{text-align:right;white-space:nowrap}tfoot td{font-weight:700}.statement{margin:18px 0 28px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:36px}.signature{min-height:94px}.signature strong{display:block;margin-bottom:15px}.signature p{margin:8px 0}.note{margin-top:20px;color:#555;font-size:9pt}.toolbar{width:min(210mm,100%);margin:18px auto;display:flex;justify-content:flex-end;gap:8px}.toolbar button{border:0;border-radius:8px;padding:10px 16px;background:#202020;color:#fff;font-size:14px;cursor:pointer}.toolbar button:hover{background:#424242}@page{size:A4;margin:0}@media print{body{background:#fff}.sheet{width:210mm;min-height:297mm;margin:0;padding:18mm 17mm;box-shadow:none}.toolbar{display:none}}@media(max-width:640px){.sheet{margin:0;padding:20px 16px;min-height:100vh}.meta,.signatures{grid-template-columns:1fr}.meta .wide{grid-column:auto}.toolbar{padding:0 16px}.table-wrap{overflow-x:auto}}
+</style></head><body>
+<div class="toolbar"><button type="button" onclick="window.print()">Печать / Сохранить PDF</button></div>
+<main class="sheet">
+  <h1>АКТ ВЫПОЛНЕННЫХ РАБОТ</h1><p class="subtitle">по монтажу дверей</p>
+  <div class="act-date">№ <span class="line"></span> от ${date}</div>
+  <section class="meta">
+    <p class="wide"><strong>Объект:</strong> ${htmlEscape(object.name)}</p>
+    <p><strong>Раздел:</strong> ${blockLabel}</p>
+    <p><strong>Договор №</strong> <span class="line"></span></p>
+    <p class="wide"><strong>Период выполнения:</strong> с <span class="line"></span> по <span class="line"></span></p>
+    <p class="wide"><strong>Заказчик:</strong> <span class="line long"></span></p>
+    <p class="wide"><strong>Исполнитель:</strong> <span class="line long"></span></p>
+  </section>
+  <div class="table-wrap"><table><thead><tr><th>№</th><th>Наименование работ</th><th>Ед.</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr></thead><tbody>${bodyRows}</tbody><tfoot><tr><td colspan="3">Итого</td><td class="num">${total}</td><td></td><td class="num">${totalAmount}</td></tr></tfoot></table></div>
+  <p class="statement">Работы по монтажу дверей выполнены в указанном объёме. Настоящий акт составлен для подтверждения выполненных работ.</p>
+  <section class="signatures">
+    <div class="signature"><strong>Заказчик</strong><p>ФИО: <span class="line long"></span></p><p>Подпись: <span class="line"></span> &nbsp; Дата: <span class="line"></span></p></div>
+    <div class="signature"><strong>Исполнитель</strong><p>ФИО: <span class="line long"></span></p><p>Подпись: <span class="line"></span> &nbsp; Дата: <span class="line"></span></p></div>
+  </section>
+  <p class="note">В документ включены только двери со статусом «Принято» в системе учёта.</p>
+</main>
+<script>window.addEventListener('load',()=>{window.focus();window.print();});<\/script></body></html>`;
+}

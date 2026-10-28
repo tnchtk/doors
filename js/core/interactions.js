@@ -4,6 +4,7 @@
 function bindPageEvents(){
   const c=document.getElementById('content');
   if(route.page==='admin') bindAdminEvents(c);
+  if(route.page==='reports') bindAvrEvents(c);
 
   c.querySelector('[data-create-object]')?.addEventListener('click',createNewObject);
   c.querySelectorAll('[data-create-block]').forEach(el=>el.addEventListener('click',()=>createNewBlock(el.dataset.createBlock)));
