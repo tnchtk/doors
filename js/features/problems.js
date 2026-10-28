@@ -28,7 +28,7 @@ function pageProblems(){
               <td><button class="btn sm" data-resolve-problem='${JSON.stringify({objId:x.obj.id, blockId:x.block.id, floorId:x.floor.id, aptId:x.apt.id, doorId:x.door.id})}'>Решено</button></td>
             </tr>`;
           }).join('')}
-          ${problems.length===0?`<tr><td colspan="8"><div class="empty">Проблем не зафиксировано 🎉</div></td></tr>`:''}
+          ${problems.length===0?`<tr><td colspan="8"><div class="empty">Проблем не зафиксировано</div></td></tr>`:''}
         </tbody>
       </table>
       </div>

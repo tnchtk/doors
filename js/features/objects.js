@@ -127,7 +127,7 @@ function doorList(obj, block, floor, apt){
       ${apt.doors.map(d=>{
         const st=STATUS[d.status];
         return `<div class="door-card" ${canManageWorkspace()?`data-door-status='${JSON.stringify({objId:obj.id, blockId:block.id, floorId:floor.id, aptId:apt.id, doorId:d.id})}'`:"style='cursor:default'"}>
-          <div class="d-top"><span class="d-name">Дверь №${d.n}</span>${d.photo?'<span title="Есть фото" style="font-size:12px;">📷</span>':''}</div>
+          <div class="d-top"><span class="d-name">Дверь №${d.n}</span>${d.photo?'<span class="photo-indicator" title="Есть фото"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="15" rx="3"/><circle cx="12" cy="13.5" r="3.5"/><path d="m8 6 1.2-2h5.6L16 6"/></svg></span>':''}</div>
           <span class="pill ${st.cls}"><span class="dot ${st.cls}"></span>${st.label}</span>
           ${d.problem?`<div style="font-size:11px;color:var(--bad);margin-top:6px;">${d.problem}</div>`:''}
         </div>`;

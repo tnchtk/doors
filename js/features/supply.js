@@ -18,7 +18,7 @@ function pageSupply(){
           const obj=findObj(r.objId);
           return `<div class="reqline" style="flex-direction:column;align-items:stretch;gap:6px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <strong style="font-size:13px;">${r.status==='new'?'🔴 ':''}Заявка №${r.id.replace('req','')} — ${obj?obj.name:''}, ${r.blockName}, ${r.floor} эт., кв. ${r.apt}</strong>
+              <strong style="font-size:13px;">${r.status==='new'?'<span class="inline-dot bad" aria-hidden="true"></span>':''}Заявка №${r.id.replace('req','')} — ${obj?obj.name:''}, ${r.blockName}, ${r.floor} эт., кв. ${r.apt}</strong>
               <select class="req-status-select" data-req-status="${r.id}">
                 ${REQ_STATUS_ORDER.map(s=>`<option value="${s}" ${s===r.status?'selected':''}>${REQ_STATUS[s]}</option>`).join('')}
               </select>
@@ -36,10 +36,10 @@ function pageSupply(){
         ${shortageByObj.map(({o,mt})=>`
           <div style="margin-bottom:16px;">
             <div style="font-size:13px;font-weight:600;margin-bottom:8px;">${o.name}</div>
-            ${mt.length===0 ? `<div style="font-size:12px;color:var(--ok);">🟢 Материалов хватает</div>` :
+            ${mt.length===0 ? `<div style="font-size:12px;color:var(--ok);"><span class="inline-dot ok" aria-hidden="true"></span>Материалов хватает</div>` :
               mt.map(m=>`<div class="reqline" style="padding:6px 0;">
                 <span style="font-size:12px;color:var(--text-dim)">${m.name}</span>
-                <span class="pill bad">🔴 не хватает ${m.missing} ${m.unit}</span>
+                <span class="pill bad"><span class="inline-dot bad" aria-hidden="true"></span>Не хватает ${m.missing} ${m.unit}</span>
               </div>`).join('')
             }
           </div>
@@ -59,7 +59,7 @@ function pageSupply(){
               <td class="mono">${m.needed}</td>
               <td class="mono">${m.have}</td>
               <td class="mono">${m.missing||'—'}</td>
-              <td>${m.missing>0?'<span class="pill bad">🔴 нехватка</span>':'<span class="pill ok">🟢 достаточно</span>'}</td>
+              <td>${m.missing>0?'<span class="pill bad"><span class="inline-dot bad" aria-hidden="true"></span>Нехватка</span>':'<span class="pill ok"><span class="inline-dot ok" aria-hidden="true"></span>Достаточно</span>'}</td>
             </tr>
           `).join('')}
         </tbody>

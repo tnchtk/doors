@@ -92,9 +92,9 @@ function pageDashboard(){
         </div>
         <div class="panel-head" style="margin-top:18px;"><h3>Требует внимания</h3></div>
         <div style="display:flex;flex-direction:column;gap:8px;">
-          <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)">🔴 Новых заявок от бригад</span><span class="pill ${newRequests?'bad':'neutral'}">${newRequests}</span></div>
-          <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)">⚠️ Проблемных дверей</span><span class="pill ${problemCount?'bad':'neutral'}">${problemCount}</span></div>
-          <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)">📦 Критический остаток материалов</span><span class="pill ${shortMaterials.length?'warn':'neutral'}">${shortMaterials.length}</span></div>
+          <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)"><span class="inline-dot bad" aria-hidden="true"></span>Новых заявок от бригад</span><span class="pill ${newRequests?'bad':'neutral'}">${newRequests}</span></div>
+          <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)"><span class="inline-dot warn" aria-hidden="true"></span>Проблемных дверей</span><span class="pill ${problemCount?'bad':'neutral'}">${problemCount}</span></div>
+          <div class="reqline"><span style="font-size:12.5px;color:var(--text-dim)"><span class="inline-dot warn" aria-hidden="true"></span>Критический остаток материалов</span><span class="pill ${shortMaterials.length?'warn':'neutral'}">${shortMaterials.length}</span></div>
         </div>
       </div>
     </div>

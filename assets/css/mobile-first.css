@@ -48,13 +48,13 @@ body {
   overflow-x: hidden;
   background: radial-gradient(ellipse at 92% 0%, rgba(192,151,104,.11), transparent 30rem), var(--bg);
   color: var(--text);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: IBM Plex Sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 button, input, select, textarea { font: inherit; }
 button, [role="button"], a { -webkit-tap-highlight-color: transparent; }
-h1, h2, h3, h4 { color: var(--text); font-family: "Space Grotesk", Inter, sans-serif; letter-spacing: -.025em; }
+h1, h2, h3, h4 { color: var(--text); font-family: "IBM Plex Sans", sans-serif; letter-spacing: -.025em; }
 a { color: inherit; text-decoration-color: rgba(182,93,59,.55); text-underline-offset: 3px; }
 ::selection { background: var(--accent); color: #fffaf3; }
 :focus-visible { outline: 3px solid rgba(182,93,59,.72); outline-offset: 3px; }
@@ -96,11 +96,11 @@ a { color: inherit; text-decoration-color: rgba(182,93,59,.55); text-underline-o
   background: linear-gradient(145deg,#d89a72,var(--accent));
   box-shadow: 0 8px 20px rgba(182,93,59,.22);
   color: #fffaf3;
-  font-family: "Space Grotesk",sans-serif;
+  font-family: "IBM Plex Sans",sans-serif;
   font-size: 16px;
   font-weight: 700;
 }
-.brand .name { color: var(--nav-text); font-family: "Space Grotesk",sans-serif; font-size: 17px; font-weight: 700; line-height: 1.1; }
+.brand .name { color: var(--nav-text); font-family: "IBM Plex Sans",sans-serif; font-size: 17px; font-weight: 700; line-height: 1.1; }
 .brand .sub { margin-top: 5px; color: var(--nav-muted); font-size: 11px; letter-spacing: .045em; }
 .nav { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 6px; overflow-y: auto; padding: 2px 0; }
 .nav-item {
@@ -172,7 +172,7 @@ a { color: inherit; text-decoration-color: rgba(182,93,59,.55); text-underline-o
 .local-mode-banner strong { color: #795d1b; }
 .local-mode-banner code { color: var(--text); overflow-wrap: anywhere; }
 .dashboard-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin: 4px 0 22px; }
-.dashboard-heading h2 { margin: 6px 0 8px; color: var(--text); font-family: "Space Grotesk",sans-serif; font-size: clamp(26px,6vw,34px); line-height: 1.08; letter-spacing: -.045em; }
+.dashboard-heading h2 { margin: 6px 0 8px; color: var(--text); font-family: "IBM Plex Sans",sans-serif; font-size: clamp(26px,6vw,34px); line-height: 1.08; letter-spacing: -.045em; }
 .dashboard-heading p { max-width: 520px; margin: 0; color: var(--text-dim); font-size: 14px; line-height: 1.6; }
 .dashboard-eyebrow { display: flex; align-items: center; gap: 8px; color: var(--accent-dim); font-size: 10px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
 .dashboard-eyebrow::before { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); content: ""; }
@@ -212,7 +212,7 @@ a { color: inherit; text-decoration-color: rgba(182,93,59,.55); text-underline-o
 }
 .kpi::after { position: absolute; inset: auto -24px -34px auto; width: 84px; height: 84px; border: 1px solid rgba(37,49,43,.045); border-radius: 50%; content: ""; }
 .kpi:hover { border-color: #d0c6b7; box-shadow: 0 10px 24px rgba(39,48,41,.075); transform: translateY(-2px); }
-.kpi .val { position: relative; color: var(--text); font-family: "Space Grotesk",sans-serif; font-size: 29px; font-weight: 700; line-height: 1; letter-spacing: -.05em; overflow-wrap: anywhere; }
+.kpi .val { position: relative; color: var(--text); font-family: "IBM Plex Sans",sans-serif; font-size: 29px; font-weight: 700; line-height: 1; letter-spacing: -.05em; overflow-wrap: anywhere; }
 .kpi .lbl { position: relative; margin-top: 10px; color: var(--text-dim); font-size: 11px; line-height: 1.4; }
 .kpi.accent { border-color: rgba(182,93,59,.25); background: linear-gradient(145deg,rgba(182,93,59,.07),transparent 76%),var(--bg-1); }
 .kpi.accent .val { color: var(--accent); }
@@ -288,7 +288,7 @@ tr.clickable:active { background: rgba(182,93,59,.1); }
 .tile { min-width: 0; padding: 17px; border: 1px solid var(--line-soft); border-radius: 18px; background: var(--bg-1); box-shadow: 0 4px 12px rgba(39,48,41,.035); cursor: pointer; transition: border-color 300ms ease,background-color 300ms ease,transform 300ms ease,box-shadow 300ms ease; }
 .tile:hover { border-color: #cdb8a6; background: #fffdf9; box-shadow: 0 10px 24px rgba(39,48,41,.08); transform: translateY(-2px); }
 .tile:active { transform: scale(.99); }
-.tile .t-name { margin-bottom: 9px; color: var(--text); font-family: "Space Grotesk",sans-serif; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.tile .t-name { margin-bottom: 9px; color: var(--text); font-family: "IBM Plex Sans",sans-serif; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
 .tile .t-meta { margin-bottom: 13px; color: var(--text-faint); font-size: 12px; line-height: 1.5; }
 .tile .t-progress { display: flex; align-items: center; gap: 9px; color: var(--text-dim); font-size: 11px; }
 .tile .t-pct { color: var(--text); font-family: "IBM Plex Mono",monospace; font-weight: 600; }

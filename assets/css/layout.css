@@ -23,11 +23,11 @@
   width:38px;height:38px;border-radius:11px;
   background:linear-gradient(145deg,#ffa268,var(--accent) 58%,#d65c24);
   display:flex;align-items:center;justify-content:center;
-  font-family:'Space Grotesk';font-weight:700;font-size:16px;color:#21150f;
+  font-family:'IBM Plex Sans';font-weight:700;font-size:16px;color:#21150f;
   flex:none;
   box-shadow:0 5px 16px rgba(255,129,66,.22);
 }
-.brand .name{font-family:'Space Grotesk';font-weight:700;font-size:16.5px;line-height:1.1;}
+.brand .name{font-family:'IBM Plex Sans';font-weight:700;font-size:16.5px;line-height:1.1;}
 .brand .sub{font-size:11px;color:var(--text-faint);margin-top:4px;letter-spacing:.03em;}
 
 .nav{display:flex;flex-direction:column;gap:4px;flex:1;overflow-y:auto;padding:2px 0;}
@@ -84,14 +84,14 @@
 .local-mode-banner strong{color:var(--warn);}
 .local-mode-banner code{color:var(--text);}
 .dashboard-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin:0 0 22px;}
-.dashboard-heading h2{font-family:'Space Grotesk',sans-serif;font-size:25px;line-height:1.15;letter-spacing:-.035em;margin:4px 0 7px;}
+.dashboard-heading h2{font-family:'IBM Plex Sans',sans-serif;font-size:25px;line-height:1.15;letter-spacing:-.035em;margin:4px 0 7px;}
 .dashboard-heading p{color:var(--text-dim);font-size:13px;line-height:1.55;margin:0;}
 .dashboard-eyebrow{display:flex;align-items:center;gap:8px;color:#ffad83;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;}
 .dashboard-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(255,129,66,.55);}
 .dashboard-date{color:var(--text-faint);font-size:12px;white-space:nowrap;padding:8px 11px;border:1px solid var(--line-soft);border-radius:999px;background:rgba(255,255,255,.025);}
 .cloud-entry{flex:1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at top,#20252d 0, var(--bg) 58%);}
 .cloud-entry-card{width:min(100%,420px);padding:30px;background:var(--bg-1);border:1px solid var(--line);border-radius:var(--radius-l);box-shadow:0 24px 80px rgba(0,0,0,.28);}
-.cloud-entry-card .brand-mark{width:42px;height:42px;margin:0 auto 18px;border-radius:11px;background:linear-gradient(155deg,var(--accent),#c94f0f);display:flex;align-items:center;justify-content:center;color:#181818;font-family:'Space Grotesk';font-weight:700;font-size:17px;}
+.cloud-entry-card .brand-mark{width:42px;height:42px;margin:0 auto 18px;border-radius:11px;background:linear-gradient(155deg,var(--accent),#c94f0f);display:flex;align-items:center;justify-content:center;color:#181818;font-family:'IBM Plex Sans';font-weight:700;font-size:17px;}
 .cloud-entry-card h1{text-align:center;font-size:22px;}
 .cloud-entry-card>p{text-align:center;color:var(--text-dim);font-size:13px;line-height:1.55;margin:10px 0 22px;}
 .cloud-entry-card form .btn{width:100%;margin-top:2px;}
