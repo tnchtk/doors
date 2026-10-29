@@ -7,6 +7,10 @@ function bindPageEvents(){
   if(route.page==='reports') bindAvrEvents(c);
 
   c.querySelector('[data-create-object]')?.addEventListener('click',createNewObject);
+  c.querySelectorAll('[data-delete-object]').forEach(button=>button.addEventListener('click',event=>{
+    event.stopPropagation();
+    deleteWorkspaceObject(button.dataset.deleteObject,button);
+  }));
   c.querySelectorAll('[data-create-block]').forEach(el=>el.addEventListener('click',()=>createNewBlock(el.dataset.createBlock)));
   c.querySelectorAll('[data-edit-block]').forEach(el=>el.addEventListener('click',event=>{
     event.stopPropagation();
@@ -94,6 +98,36 @@ function createNewObject(){
     const obj={id:newRecordId('o'),name,address:values.address.trim(),blocks:[]};
     state.objects.push(obj);saveState();goto('objects',{objId:obj.id});toast('Объект создан');return true;
   });
+}
+
+async function deleteWorkspaceObject(objectId,button){
+  if(!canManageWorkspace()){toast('Удалять объекты могут только администратор или менеджер');return;}
+  const object=state.objects.find(item=>item.id===objectId);if(!object)return;
+  const requestCount=(state.requests||[]).filter(request=>request.objId===objectId).length;
+  const details=`Блоки, этажи, квартиры, двери и заявки на материалы (${requestCount}) также будут удалены.`;
+  if(!confirm(`Удалить объект «${object.name}»?\n\n${details}\n\nЭто действие нельзя отменить.`))return;
+
+  const previousState=JSON.parse(JSON.stringify(state));
+  button.disabled=true;
+  state.objects=state.objects.filter(item=>item.id!==objectId);
+  state.requests=(state.requests||[]).filter(request=>request.objId!==objectId);
+  try{
+    await saveState();
+    if(cloudEnabled&&cloudWriteBlocked){
+      try{await readCloudState();}catch{state=previousState;}
+      render();
+      toast('Удаление не сохранено. Проверьте подключение и повторите попытку.');
+      return;
+    }
+    render();
+    toast(`Объект «${object.name}» удалён`);
+  }catch(error){
+    state=previousState;
+    render();
+    toast(error.message||'Не удалось удалить объект');
+  }finally{
+    if(button.isConnected)button.disabled=false;
+  }
 }
 
 function createNewBlock(objId){

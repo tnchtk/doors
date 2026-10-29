@@ -21,7 +21,7 @@ function pageAdmin(){
         const apartments=o.blocks.reduce((n,b)=>n+b.floors.reduce((x,f)=>x+f.apartments.length,0),0);
         const doors=o.blocks.reduce((n,b)=>n+b.floors.reduce((x,f)=>x+f.apartments.reduce((y,a)=>y+apartmentDoors(a).length,0),0),0);
         const blockNames=o.blocks.length?`<div class="admin-block-list">${o.blocks.map(b=>`<span class="admin-block-item"><span>${adminEsc(b.name)}</span><button class="btn sm" data-admin-edit-block='${adminEsc(JSON.stringify({objId:o.id,blockId:b.id}))}'>Изменить</button></span>`).join('')}</div>`:'Пока нет блоков';
-        return `<tr><td>${adminEsc(o.name)}</td><td>${blockNames}</td><td>${apartments}</td><td>${doors}</td><td><div class="admin-actions"><button class="btn sm" data-admin-add-block="${adminEsc(o.id)}">+ Блок</button><button class="btn sm" data-admin-edit-object="${adminEsc(o.id)}">Изменить</button></div></td></tr>`;
+        return `<tr><td>${adminEsc(o.name)}</td><td>${blockNames}</td><td>${apartments}</td><td>${doors}</td><td><div class="admin-actions"><button class="btn sm" data-admin-add-block="${adminEsc(o.id)}">+ Блок</button><button class="btn sm" data-admin-edit-object="${adminEsc(o.id)}">Изменить</button><button class="btn sm danger" data-delete-object="${adminEsc(o.id)}">Удалить</button></div></td></tr>`;
       }).join('')||'<tr><td colspan="5"><div class="empty">Объектов пока нет. Создайте первый объект.</div></td></tr>'}
       </tbody></table></div>
     </div>
