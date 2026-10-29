@@ -32,22 +32,23 @@ function pageReports(){
 }
 
 function avrGeneratorPanel(){
-  const firstObject=state.objects[0];
+  const objects=activeObjects(state);
+  const firstObject=objects[0];
   const initialBlocks=firstObject?.blocks||[];
   return `
     <section class="panel avr-generator" aria-label="Генерация акта выполненных работ">
       <div class="panel-head"><div><h3>Акт выполненных работ (АВР)</h3><span class="hint">Сформируйте акт по всему объекту или одному блоку</span></div></div>
       <form data-avr-form>
         <div class="avr-controls">
-          <div class="field"><label for="avrObject">Объект</label><select id="avrObject" name="object_id" data-avr-object required ${state.objects.length?'':'disabled'}>
-            ${state.objects.map(object=>`<option value="${htmlEscape(object.id)}">${htmlEscape(object.name)}</option>`).join('')||'<option value="">Сначала добавьте объект</option>'}
+          <div class="field"><label for="avrObject">Объект</label><select id="avrObject" name="object_id" data-avr-object required ${objects.length?'':'disabled'}>
+            ${objects.map(object=>`<option value="${htmlEscape(object.id)}">${htmlEscape(object.name)}</option>`).join('')||'<option value="">Сначала добавьте объект</option>'}
           </select></div>
-          <div class="field"><label for="avrBlock">Блок</label><select id="avrBlock" name="block_id" data-avr-block ${state.objects.length?'':'disabled'}>
+          <div class="field"><label for="avrBlock">Блок</label><select id="avrBlock" name="block_id" data-avr-block ${objects.length?'':'disabled'}>
             <option value="">Весь объект</option>${initialBlocks.map(block=>`<option value="${htmlEscape(block.id)}">${htmlEscape(block.name)}</option>`).join('')}
           </select></div>
           <div class="field"><label for="avrUnitPrice">Цена монтажа одной двери</label><input id="avrUnitPrice" name="unit_price" type="number" min="0" step="0.01" inputmode="decimal" placeholder="По договору, необязательно"></div>
         </div>
-        <div class="avr-form-foot"><p>В акт попадут только проёмы, принятые менеджером. Количество дверей будет сгруппировано по типу работ и блоку.</p><button class="btn primary" type="submit" ${state.objects.length?'':'disabled'}>Сформировать АВР</button></div>
+        <div class="avr-form-foot"><p>В акт попадут только проёмы, принятые менеджером. Количество дверей будет сгруппировано по типу работ и блоку.</p><button class="btn primary" type="submit" ${objects.length?'':'disabled'}>Сформировать АВР</button></div>
       </form>
     </section>
   `;
@@ -61,14 +62,14 @@ function bindAvrEvents(container){
   const blockSelect=form.querySelector('[data-avr-block]');
 
   objectSelect.addEventListener('change',()=>{
-    const object=state.objects.find(item=>item.id===objectSelect.value);
+    const object=activeObjects(state).find(item=>item.id===objectSelect.value);
     blockSelect.innerHTML=`<option value="">Весь объект</option>${(object?.blocks||[]).map(block=>`<option value="${htmlEscape(block.id)}">${htmlEscape(block.name)}</option>`).join('')}`;
   });
 
   form.addEventListener('submit',event=>{
     event.preventDefault();
     const values=Object.fromEntries(new FormData(form).entries());
-    const object=state.objects.find(item=>item.id===values.object_id);
+    const object=activeObjects(state).find(item=>item.id===values.object_id);
     if(!object){toast('Выберите объект');return;}
     const block=values.block_id?object.blocks.find(item=>item.id===values.block_id):null;
     if(values.block_id&&!block){toast('Выберите блок из этого объекта');return;}

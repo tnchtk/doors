@@ -30,8 +30,9 @@ function bindThemeToggle(){
 const NAV_ITEMS=[
   {id:'dashboard', label:'Дашборд', icon:'dashboard'},
   {id:'objects', label:'Объекты', icon:'objects'},
+  {id:'object-management', label:'Управление объектами', icon:'objects'},
   {id:'brigades', label:'Бригады', icon:'brigades'},
-  {id:'supply', label:'Снабжение', icon:'supply', badgeFn: s=>s.requests.filter(r=>r.status==='new').length},
+  {id:'supply', label:'Снабжение', icon:'supply', badgeFn: s=>activeRequests(s).filter(r=>r.status==='new').length},
   {id:'warehouse', label:'Склад', icon:'warehouse'},
   {id:'purchases', label:'Закупки', icon:'purchases'},
   {id:'problems', label:'Проблемы', icon:'problems', badgeFn: s=>allDoors(s).filter(x=>x.door.status==='problem').length},
@@ -42,7 +43,7 @@ const NAV_ITEMS=[
 function navItemsForUser(){
   if(!cloudEnabled)return NAV_ITEMS;
   const role=cloudProfile?.role;
-  if(role==='admin')return NAV_ITEMS;
+  if(role==='admin')return NAV_ITEMS.filter(item=>item.id!=='object-management');
   if(role==='manager')return NAV_ITEMS.filter(item=>item.id!=='admin');
   if(role==='foreman')return NAV_ITEMS.filter(item=>['dashboard','objects','problems'].includes(item.id));
   return NAV_ITEMS.filter(item=>item.id==='dashboard');
@@ -241,7 +242,7 @@ function bindCloudAuthEvents(){
 }
 
 function pageTitle(){
-  if(route.page==='objects') return route.objId ? findObj(route.objId).name : 'Объекты';
+  if(route.page==='objects'){const object=route.objId?findObj(route.objId):null;return object&&!object.archivedAt?object.name:'Объекты';}
   return nameOfPage(route.page);
 }
 function pageCrumb(){
@@ -284,6 +285,7 @@ function toast(msg){
 function renderPage(){
   if(route.page==='dashboard') return pageDashboard();
   if(route.page==='objects') return pageObjects();
+  if(route.page==='object-management') return pageObjectManagement();
   if(route.page==='brigades') return pageBrigades();
   if(route.page==='supply') return pageSupply();
   if(route.page==='warehouse') return pageWarehouse();

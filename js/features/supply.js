@@ -2,7 +2,8 @@ const REQ_STATUS = {new:'Новая', in_progress:'В обработке', colle
 const REQ_STATUS_ORDER = ['new','in_progress','collected','delivered','received'];
 
 function pageSupply(){
-  const shortageByObj = state.objects.map(o=>{
+  const requests=activeRequests(state);
+  const shortageByObj = activeObjects(state).map(o=>{
     const od=openingsForObject(state,o.id).map(item=>item.opening);
     const mt=materialsTable(od).filter(m=>m.missing>0);
     return {o, mt};
@@ -11,8 +12,8 @@ function pageSupply(){
   return `
     <div class="two-col">
       <div class="panel">
-        <div class="panel-head"><h3>Заявки от бригад</h3><span class="hint">${state.requests.length} заявок</span></div>
-        ${state.requests.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+        <div class="panel-head"><h3>Заявки от бригад</h3><span class="hint">${requests.length} заявок</span></div>
+        ${requests.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
           const brigade=state.brigades.find(x=>x.id===r.brigadeId);
           const obj=findObj(r.objId);
           return `<div class="reqline" style="flex-direction:column;align-items:stretch;gap:6px;">

@@ -11,6 +11,7 @@ let cloudRecoveryActive=false;
 let cloudPasswordSetupMode='recovery';
 let cloudProfile=null;
 function canManageWorkspace(){return !cloudEnabled||['admin','manager'].includes(cloudProfile?.role);}
+function isAdminWorkspaceUser(){return !cloudEnabled||cloudProfile?.role==='admin';}
 let cloudRevision=null;
 let cloudInitialized=!cloudEnabled;
 let cloudStatus=cloudEnabled?'Подключение к общей базе…':'Локальный режим';

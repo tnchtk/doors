@@ -8,10 +8,11 @@ function pageDashboard(){
   const returnedOpenings=openingList.filter(item=>item.opening.reviewStatus==='changes_requested').length;
   const pendingOpenings=openingList.filter(item=>['issue_reported','pending'].includes(item.opening.reviewStatus)).length;
   const problemCount=c.problem+returnedOpenings;
-  const newRequests=state.requests.filter(r=>r.status==='new').length;
+  const newRequests=activeRequests(state).filter(r=>r.status==='new').length;
   const shortMaterials = materialsTable(doors).filter(m=>m.missing>0);
 
-  const objRows = state.objects.map(o=>{
+  const objects=activeObjects(state);
+  const objRows = objects.map(o=>{
     const od=objDoors(state,o.id);
     const oc=countByStatus(od);
     const ot=totalCount(oc);
@@ -41,13 +42,13 @@ function pageDashboard(){
         <div class="summary-track" aria-hidden="true"><span style="width:${pct}%"></span></div>
       </div>
       <div class="summary-side">
-        <div class="summary-stat"><span>Объектов</span><strong>${state.objects.length}</strong></div>
+        <div class="summary-stat"><span>Объектов</span><strong>${objects.length}</strong></div>
         <div class="summary-stat"><span>Бригад</span><strong>${state.brigades.length}</strong></div>
       </div>
     </section>
     <div class="kpi-grid">
-      <div class="kpi"><div class="val">${state.objects.length}</div><div class="lbl">Объектов</div></div>
-      <div class="kpi"><div class="val">${state.objects.reduce((s,o)=>s+o.blocks.length,0)}</div><div class="lbl">Блоков</div></div>
+      <div class="kpi"><div class="val">${objects.length}</div><div class="lbl">Объектов</div></div>
+      <div class="kpi"><div class="val">${objects.reduce((s,o)=>s+o.blocks.length,0)}</div><div class="lbl">Блоков</div></div>
       <div class="kpi"><div class="val">${state.brigades.length}</div><div class="lbl">Бригад</div></div>
       <div class="kpi accent"><div class="val">${total.toLocaleString('ru')}</div><div class="lbl">Всего дверей</div></div>
       <div class="kpi ok"><div class="val">${done.toLocaleString('ru')}</div><div class="lbl">Установлено</div></div>

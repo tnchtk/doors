@@ -79,9 +79,14 @@ function apartmentDoors(apartment){
   return (apartment?.openings||[]).flatMap(opening=>(opening.doors||[]).map(door=>({door,opening})));
 }
 
+function activeObjects(source){return (source?.objects||[]).filter(object=>!object.archivedAt);}
+function activeRequests(source){
+  const objects=new Map((source?.objects||[]).map(object=>[object.id,object]));
+  return (source?.requests||[]).filter(request=>{const object=objects.get(request.objId);return object&&!object.archivedAt;});
+}
 function allOpenings(source){
   const out=[];
-  (source?.objects||[]).forEach(obj=>(obj.blocks||[]).forEach(block=>(block.floors||[]).forEach(floor=>(floor.apartments||[]).forEach(apt=>(apt.openings||[]).forEach(opening=>out.push({opening,apt,floor,block,obj}))))));
+  activeObjects(source).forEach(obj=>(obj.blocks||[]).forEach(block=>(block.floors||[]).forEach(floor=>(floor.apartments||[]).forEach(apt=>(apt.openings||[]).forEach(opening=>out.push({opening,apt,floor,block,obj}))))));
   return out;
 }
 

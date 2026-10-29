@@ -2,7 +2,7 @@ function exportCSV(kind){
   let rows=[];
   if(kind==='csv'){
     rows.push(['Объект','Всего','Установлено','Осталось','Проблем','Готовность %']);
-    state.objects.forEach(o=>{
+    activeObjects(state).forEach(o=>{
       const od=objDoors(state,o.id); const c=countByStatus(od); const t=totalCount(c); const d=doneCount(c);
       rows.push([o.name, t, d, t-d-c.problem, c.problem, t?Math.round(d/t*100):0]);
     });

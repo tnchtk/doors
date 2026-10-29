@@ -11,6 +11,10 @@ function bindPageEvents(){
     event.stopPropagation();
     deleteWorkspaceObject(button.dataset.deleteObject,button);
   }));
+  c.querySelectorAll('[data-object-archive]').forEach(button=>button.addEventListener('click',()=>toggleWorkspaceObjectArchive(button.dataset.objectArchive,button)));
+  c.querySelectorAll('[data-managed-object-edit]').forEach(button=>button.addEventListener('click',()=>editExistingObject(button.dataset.managedObjectEdit)));
+  c.querySelectorAll('[data-managed-block-edit]').forEach(button=>button.addEventListener('click',()=>editExistingBlock(JSON.parse(button.dataset.managedBlockEdit))));
+  c.querySelectorAll('[data-managed-add-block]').forEach(button=>button.addEventListener('click',()=>createNewBlock(button.dataset.managedAddBlock)));
   c.querySelectorAll('[data-create-block]').forEach(el=>el.addEventListener('click',()=>createNewBlock(el.dataset.createBlock)));
   c.querySelectorAll('[data-edit-block]').forEach(el=>el.addEventListener('click',event=>{
     event.stopPropagation();
@@ -79,33 +83,65 @@ function openDataEntryModal(title,fields,onSave){
   const close=()=>overlay.remove();
   overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
   overlay.querySelector('[data-cancel]').addEventListener('click',close);
-  overlay.querySelector('form').addEventListener('submit',e=>{
+  overlay.querySelector('form').addEventListener('submit',async e=>{
     e.preventDefault();
-    const values=Object.fromEntries(new FormData(e.currentTarget).entries());
-    if(onSave(values)!==false)close();
+    const form=e.currentTarget,button=form.querySelector('[type="submit"]');
+    const values=Object.fromEntries(new FormData(form).entries());
+    button.disabled=true;button.textContent='Сохраняем…';
+    try{if(await onSave(values)!==false)close();}
+    catch(error){toast(error.message||'Не удалось сохранить данные');}
+    finally{if(button.isConnected){button.disabled=false;button.textContent='Создать';}}
   });
   overlay.querySelector('input,select')?.focus();
+}
+
+async function toggleWorkspaceObjectArchive(objectId,button){
+  if(!canManageWorkspace()){toast('Архивировать объекты могут только администратор или менеджер');return;}
+  const object=state.objects.find(item=>item.id===objectId);if(!object)return;
+  const wasArchived=Boolean(object.archivedAt);
+  if(!wasArchived&&!confirm(`Архивировать объект «${object.name}»?\n\nОн скроется из рабочих списков, но данные сохранятся и объект можно будет восстановить.`))return;
+  const previousState=JSON.parse(JSON.stringify(state));
+  button.disabled=true;
+  object.archivedAt=wasArchived?null:new Date().toISOString();
+  try{
+    await saveState();
+    if(cloudEnabled&&cloudWriteBlocked){
+      try{await readCloudState();}catch{state=previousState;}
+      render();toast('Изменение не сохранено. Проверьте подключение и повторите попытку.');return;
+    }
+    render();toast(wasArchived?`Объект «${object.name}» восстановлен`:`Объект «${object.name}» перемещён в архив`);
+  }catch(error){
+    state=previousState;render();toast(error.message||'Не удалось изменить объект');
+  }finally{
+    if(button.isConnected)button.disabled=false;
+  }
 }
 
 function createNewObject(){
   openDataEntryModal('Новый объект',[
     {id:'name',label:'Название объекта',required:true},
     {id:'address',label:'Адрес'},
-  ],values=>{
+  ],async values=>{
     const name=values.name.trim();
     if(!name){toast('Введите название объекта');return false;}
     if(state.objects.some(o=>o.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){toast('Объект с таким названием уже есть');return false;}
+    const previousState=JSON.parse(JSON.stringify(state));
     const obj={id:newRecordId('o'),name,address:values.address.trim(),blocks:[]};
-    state.objects.push(obj);saveState();goto('objects',{objId:obj.id});toast('Объект создан');return true;
+    state.objects.push(obj);
+    await saveState();
+    if(cloudEnabled&&cloudWriteBlocked){try{await readCloudState();}catch{state=previousState;}render();throw new Error('Объект не сохранён. Обновите данные и повторите попытку.');}
+    if(route.page==='object-management'||route.page==='admin')render();
+    else goto('objects',{objId:obj.id});
+    toast('Объект создан');return true;
   });
 }
 
 async function deleteWorkspaceObject(objectId,button){
-  if(!canManageWorkspace()){toast('Удалять объекты могут только администратор или менеджер');return;}
+  if(!isAdminWorkspaceUser()){toast('Окончательно удалять объекты может только администратор');return;}
   const object=state.objects.find(item=>item.id===objectId);if(!object)return;
   const requestCount=(state.requests||[]).filter(request=>request.objId===objectId).length;
   const details=`Блоки, этажи, квартиры, двери и заявки на материалы (${requestCount}) также будут удалены.`;
-  if(!confirm(`Удалить объект «${object.name}»?\n\n${details}\n\nЭто действие нельзя отменить.`))return;
+  if(!confirm(`Удалить объект «${object.name}» навсегда?\n\n${details}\n\nЭто действие нельзя отменить.`))return;
 
   const previousState=JSON.parse(JSON.stringify(state));
   button.disabled=true;
@@ -135,12 +171,18 @@ function createNewBlock(objId){
   const nextNumber=obj.blocks.length+1;
   openDataEntryModal('Новый блок',[
     {id:'name',label:'Название блока',value:`Блок ${nextNumber}`,required:true},
-  ],values=>{
+  ],async values=>{
     const name=values.name.trim();
     if(!name){toast('Введите название блока');return false;}
     if(obj.blocks.some(b=>b.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){toast('Такой блок уже есть');return false;}
+    const previousState=JSON.parse(JSON.stringify(state));
     const block={id:newRecordId('b'),name,floors:[]};
-    obj.blocks.push(block);saveState();goto('objects',{objId:obj.id,blockId:block.id});toast('Блок создан');return true;
+    obj.blocks.push(block);
+    await saveState();
+    if(cloudEnabled&&cloudWriteBlocked){try{await readCloudState();}catch{state=previousState;}render();throw new Error('Блок не сохранён. Обновите данные и повторите попытку.');}
+    if(route.page==='object-management'||route.page==='admin')render();
+    else goto('objects',{objId:obj.id,blockId:block.id});
+    toast('Блок создан');return true;
   });
 }
 

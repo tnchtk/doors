@@ -6,7 +6,7 @@ function findApt(objId,blockId,floorId,aptId){return findFloor(objId,blockId,flo
 function pageObjects(){
   if(!route.objId) return objectsList();
   const obj=findObj(route.objId);
-  if(!obj) return objectsList();
+  if(!obj||obj.archivedAt) return objectsList();
   if(!route.blockId) return blockList(obj);
   const block=findBlock(obj.id, route.blockId);
   if(!block) return blockList(obj);
@@ -28,9 +28,9 @@ function crumb(segments){
 
 function objectsList(){
   return `
-    <div class="panel-head"><div><h3>Объекты</h3><div class="hint">Откройте объект, чтобы вести двери по блокам и квартирам</div></div>${canManageWorkspace()?'<button class="btn primary sm" data-create-object>+ Новый объект</button>':''}</div>
+    <div class="panel-head"><div><h3>Объекты</h3><div class="hint">Откройте объект, чтобы вести установку по блокам и квартирам</div></div></div>
     <div class="card-grid">
-      ${state.objects.map(o=>{
+      ${activeObjects(state).map(o=>{
         const od=objDoors(state,o.id); const oc=countByStatus(od); const ot=totalCount(oc); const done=doneCount(oc);
         const pct= ot?Math.round(done/ot*100):0;
         return `<div class="tile" data-open-obj="${o.id}">
@@ -40,7 +40,6 @@ function objectsList(){
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
             <span class="t-pct">${pct}%</span>
           </div>
-          ${canManageWorkspace()?`<div class="block-tile-actions"><button type="button" class="btn sm danger" data-delete-object="${htmlEscape(o.id)}">Удалить объект</button></div>`:''}
         </div>`;
       }).join('')}
     </div>
@@ -50,7 +49,7 @@ function objectsList(){
 function blockList(obj){
   return `
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name}])}
-    <div class="panel-head"><h3>Блоки</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-block="${obj.id}">+ Новый блок</button>`:''}</div>
+    <div class="panel-head"><h3>Блоки</h3></div>
     <div class="card-grid">
       ${obj.blocks.map(b=>{
         const doors=[]; b.floors.forEach(f=>f.apartments.forEach(a=>apartmentDoors(a).forEach(item=>doors.push(item.door))));
@@ -63,7 +62,6 @@ function blockList(obj){
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
             <span class="t-pct">${pct}%</span>
           </div>
-          ${canManageWorkspace()?`<div class="block-tile-actions"><button type="button" class="btn sm" data-edit-block='${JSON.stringify({objId:obj.id,blockId:b.id})}'>Изменить блок</button></div>`:''}
         </div>`;
       }).join('')}
     </div>

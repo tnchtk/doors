@@ -3,26 +3,27 @@ let adminProfilesCache=null;
 function adminEsc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function pageAdmin(){
+  const objects=activeObjects(state);
   const doorCount=allDoors(state).length;
-  const apartmentCount=state.objects.reduce((n,o)=>n+o.blocks.reduce((x,b)=>x+b.floors.reduce((y,f)=>y+f.apartments.length,0),0),0);
+  const apartmentCount=objects.reduce((n,o)=>n+o.blocks.reduce((x,b)=>x+b.floors.reduce((y,f)=>y+f.apartments.length,0),0),0);
   const activeProfiles=(adminProfilesCache||[]).filter(profile=>profile.is_active).length;
   return `
     <div class="section-title"><h2>Админ-панель</h2></div>
     <div class="subhead">Управление объектами, блоками, бригадами и доступом сотрудников</div>
     <div class="kpi-grid">
-      <div class="kpi accent"><div class="val">${state.objects.length}</div><div class="lbl">Объектов</div></div>
-      <div class="kpi"><div class="val">${state.objects.reduce((n,o)=>n+o.blocks.length,0)}</div><div class="lbl">Блоков</div></div>
+      <div class="kpi accent"><div class="val">${objects.length}</div><div class="lbl">Активных объектов</div></div>
+      <div class="kpi"><div class="val">${objects.reduce((n,o)=>n+o.blocks.length,0)}</div><div class="lbl">Активных блоков</div></div>
       <div class="kpi"><div class="val">${doorCount}</div><div class="lbl">Дверей · ${apartmentCount} квартир</div></div>
       <div class="kpi ok"><div class="val" id="dbStatus">Проверка…</div><div class="lbl">${cloudEnabled?'Общая база данных':'Локальная база данных'}</div></div>
     </div>
     <div class="panel"><div class="panel-head"><div><h3>Объекты и блоки</h3><span class="hint">Создавайте объект, затем добавляйте в него блоки</span></div><button class="btn primary sm" data-create-object>+ Новый объект</button></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Объект</th><th>Блоки</th><th>Квартиры</th><th>Двери</th><th></th></tr></thead><tbody>
+      <div class="tbl-wrap"><table><thead><tr><th>Объект</th><th>Блоки</th><th>Квартиры</th><th>Двери</th><th>Статус</th><th></th></tr></thead><tbody>
       ${state.objects.map(o=>{
         const apartments=o.blocks.reduce((n,b)=>n+b.floors.reduce((x,f)=>x+f.apartments.length,0),0);
         const doors=o.blocks.reduce((n,b)=>n+b.floors.reduce((x,f)=>x+f.apartments.reduce((y,a)=>y+apartmentDoors(a).length,0),0),0);
         const blockNames=o.blocks.length?`<div class="admin-block-list">${o.blocks.map(b=>`<span class="admin-block-item"><span>${adminEsc(b.name)}</span><button class="btn sm" data-admin-edit-block='${adminEsc(JSON.stringify({objId:o.id,blockId:b.id}))}'>Изменить</button></span>`).join('')}</div>`:'Пока нет блоков';
-        return `<tr><td>${adminEsc(o.name)}</td><td>${blockNames}</td><td>${apartments}</td><td>${doors}</td><td><div class="admin-actions"><button class="btn sm" data-admin-add-block="${adminEsc(o.id)}">+ Блок</button><button class="btn sm" data-admin-edit-object="${adminEsc(o.id)}">Изменить</button><button class="btn sm danger" data-delete-object="${adminEsc(o.id)}">Удалить</button></div></td></tr>`;
-      }).join('')||'<tr><td colspan="5"><div class="empty">Объектов пока нет. Создайте первый объект.</div></td></tr>'}
+        return `<tr><td>${adminEsc(o.name)}</td><td>${blockNames}</td><td>${apartments}</td><td>${doors}</td><td><span class="pill ${o.archivedAt?'neutral':'ok'}">${o.archivedAt?'В архиве':'Активен'}</span></td><td><div class="admin-actions"><button class="btn sm" data-admin-add-block="${adminEsc(o.id)}">+ Блок</button><button class="btn sm" data-admin-edit-object="${adminEsc(o.id)}">Изменить</button><button class="btn sm" data-object-archive="${adminEsc(o.id)}" data-archived="${o.archivedAt?'1':'0'}">${o.archivedAt?'Восстановить':'Архивировать'}</button><button class="btn sm danger" data-delete-object="${adminEsc(o.id)}">Удалить навсегда</button></div></td></tr>`;
+      }).join('')||'<tr><td colspan="6"><div class="empty">Объектов пока нет. Создайте первый объект.</div></td></tr>'}
       </tbody></table></div>
     </div>
     <div class="panel"><div class="panel-head"><div><h3>Бригады</h3><span class="hint">Бригада назначается на этаж; бригадир увидит свои этажи</span></div><button class="btn primary sm" data-create-brigade>+ Новая бригада</button></div>
@@ -113,6 +114,24 @@ async function saveAdminProfile(container,id,changes){
   return true;
 }
 
+
+function editExistingObject(objectId){
+  const object=state.objects.find(item=>item.id===objectId);if(!object)return;
+  openAdminEditModal({title:`Изменить объект · ${object.name}`,fields:[
+    {id:'name',label:'Название объекта',value:object.name,required:true},
+    {id:'address',label:'Адрес',value:object.address||''},
+  ],onSave:async values=>{
+    const name=values.name.trim();
+    if(!name){toast('Название не может быть пустым');return false;}
+    if(state.objects.some(item=>item.id!==object.id&&item.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){toast('Объект с таким названием уже есть');return false;}
+    const previous={name:object.name,address:object.address};
+    object.name=name;object.address=values.address.trim();
+    await saveState();
+    if(cloudEnabled&&cloudWriteBlocked){try{await readCloudState();}catch{object.name=previous.name;object.address=previous.address;}render();throw new Error('Объект не сохранён. Обновите данные и повторите попытку.');}
+    render();toast('Объект обновлён');return true;
+  }});
+}
+
 function editExistingBlock(ids){
   const object=state.objects.find(item=>item.id===ids.objId),block=object?.blocks.find(item=>item.id===ids.blockId);
   if(!object||!block)return;
@@ -120,9 +139,10 @@ function editExistingBlock(ids){
     const name=values.name.trim();
     if(!name){toast('Название не может быть пустым');return false;}
     if(object.blocks.some(item=>item.id!==block.id&&item.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){toast('В этом объекте уже есть блок с таким названием');return false;}
+    const previousName=block.name;
     block.name=name;
     await saveState();
-    if(cloudEnabled&&cloudWriteBlocked)throw new Error('Блок не сохранён. Обновите данные и повторите попытку.');
+    if(cloudEnabled&&cloudWriteBlocked){try{await readCloudState();}catch{block.name=previousName;}render();throw new Error('Блок не сохранён. Обновите данные и повторите попытку.');}
     render();toast('Блок обновлён');return true;
   }});
 }
@@ -133,13 +153,7 @@ async function bindAdminEvents(container){
   if(cloudEnabled)loadAdminProfiles(container);
   container.querySelectorAll('[data-admin-add-block]').forEach(btn=>btn.addEventListener('click',()=>createNewBlock(btn.dataset.adminAddBlock)));
   container.querySelectorAll('[data-admin-edit-block]').forEach(btn=>btn.addEventListener('click',()=>editExistingBlock(JSON.parse(btn.dataset.adminEditBlock))));
-  container.querySelectorAll('[data-admin-edit-object]').forEach(btn=>btn.addEventListener('click',()=>{
-    const obj=state.objects.find(x=>x.id===btn.dataset.adminEditObject);if(!obj)return;
-    openAdminEditModal({title:'Изменить объект',fields:[{id:'name',label:'Название объекта',value:obj.name,required:true}],onSave:values=>{
-      if(!values.name.trim()){toast('Название не может быть пустым');return false;}
-      obj.name=values.name.trim();saveState();render();toast('Объект обновлён');return true;
-    }});
-  }));
+  container.querySelectorAll('[data-admin-edit-object]').forEach(btn=>btn.addEventListener('click',()=>editExistingObject(btn.dataset.adminEditObject)));
   container.querySelectorAll('[data-admin-edit-brigade]').forEach(btn=>btn.addEventListener('click',()=>{
     const b=state.brigades.find(x=>x.id===btn.dataset.adminEditBrigade);if(!b)return;
     openAdminEditModal({title:`Изменить ${b.name}`,fields:[
