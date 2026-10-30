@@ -78,14 +78,8 @@ function render(){
     ${sidebarOpen?'<div class="backdrop" data-close-sidebar></div>':''}
     <aside id="appSidebar" aria-label="Главная навигация" class="sidebar ${sidebarOpen?'open':''}">
       <div class="brand">
-        <div class="brand-product-lockup">
-          <div class="mark">СМ</div>
-          <div class="brand-copy">
-            <div class="name">СметаДверь</div>
-            <div class="sub">CRM монтажа дверей</div>
-          </div>
-        </div>
-        <img class="brand-company-logo" src="assets/isnur-logo.png" alt="ИСНУР — инженерное строительство" width="980" height="216">
+        <img class="brand-company-logo brand-logo-light" src="assets/isnur-logo.svg" alt="ИСНУР — инженерное строительство" width="490" height="108">
+        <img class="brand-company-logo brand-logo-dark" src="assets/isnur-logo-dark.svg" alt="ИСНУР — инженерное строительство" width="490" height="108">
       </div>
       <nav class="nav">
         ${navItems.map(item=>{
@@ -127,7 +121,7 @@ function render(){
 function htmlEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function cloudBrandMarkup(){
-  return `<div class="cloud-entry-brand"><div class="brand-mark">СМ</div><div class="cloud-company-logo-frame"><img class="cloud-company-logo" src="assets/isnur-logo.png" alt="ИСНУР — инженерное строительство" width="980" height="216"></div></div>`;
+  return `<div class="cloud-entry-brand"><img class="cloud-company-logo brand-logo-light" src="assets/isnur-logo.svg" alt="ИСНУР — инженерное строительство" width="490" height="108"><img class="cloud-company-logo brand-logo-dark" src="assets/isnur-logo-dark.svg" alt="ИСНУР — инженерное строительство" width="490" height="108"></div>`;
 }
 
 function cloudGate(title,message,actions=''){
@@ -140,7 +134,7 @@ function cloudGate(title,message,actions=''){
 
 function cloudLoginPage(){
   return `<main class="cloud-entry">${themeToggleMarkup('cloud-entry-theme')}<section class="cloud-entry-card">
-    ${cloudBrandMarkup()}<h1>Вход в СметаДверь</h1>
+    ${cloudBrandMarkup()}<h1>Вход в личный кабинет</h1>
     <p>Войдите в общую базу компании. Учетные записи выдает администратор.</p>
     ${cloudError?`<div class="cloud-error">${htmlEscape(cloudError)}</div>`:''}
     <form id="cloudLoginForm">

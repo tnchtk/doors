@@ -395,21 +395,16 @@ tr.clickable:active { background: rgba(182,93,59,.1); }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
-/* Company and product lockup in the navigation sidebar. */
-.brand { align-items: stretch; flex-direction: column; gap: 12px; }
-.brand-product-lockup { display: flex; min-width: 0; align-items: center; gap: 12px; }
-.brand-copy { min-width: 0; }
+/* Company wordmark in the sidebar and sign-in screens. */
+.brand { align-items: flex-start; flex-direction: column; gap: 0; }
 .brand-company-logo { display: block; width: min(100%, 220px); height: auto; max-height: 49px; object-fit: contain; object-position: left center; }
+.brand-logo-dark { display: none; }
+.cloud-entry-brand { display: flex; align-items: center; justify-content: center; margin: 0 auto 22px; }
+.cloud-company-logo { display: block; width: min(100%, 280px); height: auto; max-height: 62px; object-fit: contain; }
+:root[data-theme="dark"] .brand-logo-light { display: none; }
+:root[data-theme="dark"] .brand-logo-dark { display: block; }
 @media (max-width: 360px) {
-  .brand { gap: 8px; padding-bottom: 16px; }
+  .brand { padding-bottom: 16px; }
   .brand-company-logo { width: min(100%, 204px); max-height: 45px; }
-}
-
-.cloud-entry-brand { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 auto 22px; }
-.cloud-entry-brand .brand-mark { margin: 0; }
-.cloud-company-logo-frame { display: flex; min-width: 0; flex: 1; align-items: center; justify-content: center; padding: 6px 8px; border-radius: 12px; background: #202120; }
-.cloud-company-logo { display: block; width: min(220px, 100%); max-height: 49px; height: auto; object-fit: contain; }
-@media (max-width: 360px) {
-  .cloud-entry-brand { gap: 9px; }
-  .cloud-company-logo-frame { padding: 5px 6px; }
+  .cloud-company-logo { width: min(100%, 250px); max-height: 56px; }
 }
