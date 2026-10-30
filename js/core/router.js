@@ -126,9 +126,13 @@ function render(){
 
 function htmlEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
+function cloudBrandMarkup(){
+  return `<div class="cloud-entry-brand"><div class="brand-mark">СМ</div><div class="cloud-company-logo-frame"><img class="cloud-company-logo" src="assets/isnur-logo.png" alt="ИСНУР — инженерное строительство" width="980" height="216"></div></div>`;
+}
+
 function cloudGate(title,message,actions=''){
   return `<main class="cloud-entry">${themeToggleMarkup('cloud-entry-theme')}<section class="cloud-entry-card">
-    <div class="brand-mark">СМ</div><h1>${htmlEscape(title)}</h1>
+    ${cloudBrandMarkup()}<h1>${htmlEscape(title)}</h1>
     <p>${htmlEscape(message)}</p>${cloudError?`<div class="cloud-error">${htmlEscape(cloudError)}</div>`:''}
     <div class="cloud-entry-actions">${actions}</div>
   </section></main>`;
@@ -136,7 +140,7 @@ function cloudGate(title,message,actions=''){
 
 function cloudLoginPage(){
   return `<main class="cloud-entry">${themeToggleMarkup('cloud-entry-theme')}<section class="cloud-entry-card">
-    <div class="brand-mark">СМ</div><h1>Вход в СметаДверь</h1>
+    ${cloudBrandMarkup()}<h1>Вход в СметаДверь</h1>
     <p>Войдите в общую базу компании. Учетные записи выдает администратор.</p>
     ${cloudError?`<div class="cloud-error">${htmlEscape(cloudError)}</div>`:''}
     <form id="cloudLoginForm">
@@ -157,7 +161,7 @@ function cloudPasswordRecoveryPage(){
   const description=isInvite?'Придумайте пароль для входа. Он будет использоваться при следующих посещениях.':'Придумайте новый пароль для своей учетной записи.';
   const submitLabel=isInvite?'Создать пароль':'Сохранить новый пароль';
   return `<main class="cloud-entry">${themeToggleMarkup('cloud-entry-theme')}<section class="cloud-entry-card">
-    <div class="brand-mark">СМ</div><h1>${title}</h1>
+    ${cloudBrandMarkup()}<h1>${title}</h1>
     <p>${description}</p>
     <form id="cloudPasswordForm">
       <div class="field"><label for="cloudNewPassword">${isInvite?'Пароль для входа':'Новый пароль'}</label><input id="cloudNewPassword" name="password" type="password" autocomplete="new-password" minlength="8" required></div>

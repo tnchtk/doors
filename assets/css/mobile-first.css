@@ -404,3 +404,12 @@ tr.clickable:active { background: rgba(182,93,59,.1); }
   .brand { gap: 8px; padding-bottom: 16px; }
   .brand-company-logo { width: min(100%, 204px); max-height: 45px; }
 }
+
+.cloud-entry-brand { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0 auto 22px; }
+.cloud-entry-brand .brand-mark { margin: 0; }
+.cloud-company-logo-frame { display: flex; min-width: 0; flex: 1; align-items: center; justify-content: center; padding: 6px 8px; border-radius: 12px; background: #202120; }
+.cloud-company-logo { display: block; width: min(220px, 100%); max-height: 49px; height: auto; object-fit: contain; }
+@media (max-width: 360px) {
+  .cloud-entry-brand { gap: 9px; }
+  .cloud-company-logo-frame { padding: 5px 6px; }
+}
