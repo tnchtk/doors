@@ -78,11 +78,14 @@ function render(){
     ${sidebarOpen?'<div class="backdrop" data-close-sidebar></div>':''}
     <aside id="appSidebar" aria-label="Главная навигация" class="sidebar ${sidebarOpen?'open':''}">
       <div class="brand">
-        <div class="mark">СМ</div>
-        <div>
-          <div class="name">СметаДверь</div>
-          <div class="sub">CRM монтажа дверей</div>
+        <div class="brand-product-lockup">
+          <div class="mark">СМ</div>
+          <div class="brand-copy">
+            <div class="name">СметаДверь</div>
+            <div class="sub">CRM монтажа дверей</div>
+          </div>
         </div>
+        <img class="brand-company-logo" src="assets/isnur-logo.png" alt="ИСНУР — инженерное строительство" width="980" height="216">
       </div>
       <nav class="nav">
         ${navItems.map(item=>{

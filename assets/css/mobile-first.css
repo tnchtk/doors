@@ -394,3 +394,13 @@ tr.clickable:active { background: rgba(182,93,59,.1); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Company and product lockup in the navigation sidebar. */
+.brand { align-items: stretch; flex-direction: column; gap: 12px; }
+.brand-product-lockup { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.brand-copy { min-width: 0; }
+.brand-company-logo { display: block; width: min(100%, 220px); height: auto; max-height: 49px; object-fit: contain; object-position: left center; }
+@media (max-width: 360px) {
+  .brand { gap: 8px; padding-bottom: 16px; }
+  .brand-company-logo { width: min(100%, 204px); max-height: 45px; }
+}
