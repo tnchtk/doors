@@ -398,11 +398,8 @@ tr.clickable:active { background: rgba(182,93,59,.1); }
 /* Company wordmark in the sidebar and sign-in screens. */
 .brand { align-items: flex-start; flex-direction: column; gap: 0; }
 .brand-company-logo { display: block; width: min(100%, 220px); height: auto; max-height: 49px; object-fit: contain; object-position: left center; }
-.brand-logo-dark { display: none; }
 .cloud-entry-brand { display: flex; align-items: center; justify-content: center; margin: 0 auto 22px; }
 .cloud-company-logo { display: block; width: min(100%, 280px); height: auto; max-height: 62px; object-fit: contain; }
-:root[data-theme="dark"] .brand-logo-light { display: none; }
-:root[data-theme="dark"] .brand-logo-dark { display: block; }
 @media (max-width: 360px) {
   .brand { padding-bottom: 16px; }
   .brand-company-logo { width: min(100%, 204px); max-height: 45px; }

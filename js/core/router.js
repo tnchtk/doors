@@ -14,11 +14,19 @@ function themeToggleMarkup(extraClass=''){
   const label=isDark?'Включить светлую тему':'Включить тёмную тему';
   return `<button class="theme-toggle ${extraClass}" type="button" data-theme-toggle aria-label="${label}" title="${label}" aria-pressed="${isDark}">${themeIcon(theme)}</button>`;
 }
+function companyLogoMarkup(className){
+  const lightLogo='assets/isnur-logo.svg',darkLogo='assets/isnur-logo-dark.svg';
+  const src=currentTheme()==='dark'?darkLogo:lightLogo;
+  return `<img class="${className}" src="${src}" data-company-logo data-light-src="${lightLogo}" data-dark-src="${darkLogo}" alt="ИСНУР — инженерное строительство" width="490" height="108">`;
+}
 function bindThemeToggle(){
   document.querySelectorAll('[data-theme-toggle]').forEach(button=>button.addEventListener('click',()=>{
     const theme=currentTheme()==='dark'?'light':'dark';
     document.documentElement.dataset.theme=theme;
     try{localStorage.setItem('doors-theme',theme);}catch(_){}
+    document.querySelectorAll('[data-company-logo]').forEach(image=>{
+      image.src=theme==='dark'?image.dataset.darkSrc:image.dataset.lightSrc;
+    });
     const label=theme==='dark'?'Включить светлую тему':'Включить тёмную тему';
     button.innerHTML=themeIcon(theme);
     button.setAttribute('aria-label',label);
@@ -78,8 +86,7 @@ function render(){
     ${sidebarOpen?'<div class="backdrop" data-close-sidebar></div>':''}
     <aside id="appSidebar" aria-label="Главная навигация" class="sidebar ${sidebarOpen?'open':''}">
       <div class="brand">
-        <img class="brand-company-logo brand-logo-light" src="assets/isnur-logo.svg" alt="ИСНУР — инженерное строительство" width="490" height="108">
-        <img class="brand-company-logo brand-logo-dark" src="assets/isnur-logo-dark.svg" alt="ИСНУР — инженерное строительство" width="490" height="108">
+        ${companyLogoMarkup('brand-company-logo')}
       </div>
       <nav class="nav">
         ${navItems.map(item=>{
@@ -121,7 +128,7 @@ function render(){
 function htmlEscape(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function cloudBrandMarkup(){
-  return `<div class="cloud-entry-brand"><img class="cloud-company-logo brand-logo-light" src="assets/isnur-logo.svg" alt="ИСНУР — инженерное строительство" width="490" height="108"><img class="cloud-company-logo brand-logo-dark" src="assets/isnur-logo-dark.svg" alt="ИСНУР — инженерное строительство" width="490" height="108"></div>`;
+  return `<div class="cloud-entry-brand">${companyLogoMarkup('cloud-company-logo')}</div>`;
 }
 
 function cloudGate(title,message,actions=''){
