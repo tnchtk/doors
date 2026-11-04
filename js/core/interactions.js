@@ -3,6 +3,7 @@
    ========================================================================= */
 function bindPageEvents(){
   const c=document.getElementById('content');
+  bindBrigadeFinanceEvents(c);
   if(route.page==='admin') bindAdminEvents(c);
   if(route.page==='reports') bindAvrEvents(c);
 
@@ -21,6 +22,10 @@ function bindPageEvents(){
     editExistingBlock(JSON.parse(el.dataset.editBlock));
   }));
   c.querySelectorAll('[data-create-floor]').forEach(el=>el.addEventListener('click',()=>createNewFloor(JSON.parse(el.dataset.createFloor))));
+  c.querySelectorAll('[data-floor-rate]').forEach(el=>el.addEventListener('click',event=>{
+    event.stopPropagation();
+    openFloorFinanceEditor(JSON.parse(el.dataset.floorRate));
+  }));
   c.querySelectorAll('[data-create-apartment]').forEach(el=>el.addEventListener('click',()=>createNewApartment(JSON.parse(el.dataset.createApartment))));
   c.querySelectorAll('[data-create-door]').forEach(el=>el.addEventListener('click',()=>createNewDoor(JSON.parse(el.dataset.createDoor))));
   c.querySelector('[data-create-brigade]')?.addEventListener('click',createNewBrigade);
@@ -93,6 +98,7 @@ function openDataEntryModal(title,fields,onSave){
     finally{if(button.isConnected){button.disabled=false;button.textContent='Создать';}}
   });
   overlay.querySelector('input,select')?.focus();
+  return overlay;
 }
 
 async function toggleWorkspaceObjectArchive(objectId,button){
@@ -189,16 +195,30 @@ function createNewBlock(objId){
 function createNewFloor(ctx){
   const obj=state.objects.find(o=>o.id===ctx.objId),block=obj?.blocks.find(b=>b.id===ctx.blockId);if(!block)return;
   const nextNumber=Math.max(0,...block.floors.map(f=>Number(f.num)||0))+1;
-  openDataEntryModal('Новый этаж',[
+  const fields=[
     {id:'num',label:'Номер этажа',type:'number',value:nextNumber,min:1,step:1,required:true},
     {id:'brigadeId',label:'Бригада',options:[{value:'',label:'Не назначена'},...state.brigades.map(b=>({value:b.id,label:b.name}))]},
-  ],values=>{
+  ];
+  if(isAdminWorkspaceUser())fields.push({id:'ratePerOpening',label:'Оплата за проём, сом',type:'number',value:'',min:0,step:'0.01'});
+  const overlay=openDataEntryModal('Новый этаж',fields,async values=>{
     const num=Number(values.num);
     if(!Number.isInteger(num)||num<1){toast('Укажите корректный номер этажа');return false;}
     if(block.floors.some(f=>Number(f.num)===num)){toast('Такой этаж уже есть');return false;}
-    const floor={id:newRecordId('f'),num,brigadeId:values.brigadeId||null,apartments:[]};
-    block.floors.push(floor);saveState();goto('objects',{objId:obj.id,blockId:block.id,floorId:floor.id});toast('Этаж добавлен');return true;
+    const brigadeId=values.brigadeId||null,rate=isAdminWorkspaceUser()&&values.ratePerOpening!==''?Number(values.ratePerOpening):null;
+    if(brigadeId&&isAdminWorkspaceUser()&&(!Number.isFinite(rate)||rate<=0)){toast('Укажите цену за проём для назначенной бригады');return false;}
+    const previousState=JSON.parse(JSON.stringify(state));
+    const floor={id:newRecordId('f'),num,brigadeId,ratePerOpening:rate,apartments:[]};
+    block.floors.push(floor);await saveState();
+    if(cloudEnabled&&cloudWriteBlocked){try{await readCloudState();}catch{state=previousState;}render();throw new Error('Этаж не сохранён. Обновите данные и повторите попытку.');}
+    goto('objects',{objId:obj.id,blockId:block.id,floorId:floor.id});toast('Этаж добавлен');return true;
   });
+  if(isAdminWorkspaceUser()){
+    const brigadeSelect=overlay.querySelector('#entry_brigadeId'),rateInput=overlay.querySelector('#entry_ratePerOpening');
+    brigadeSelect?.addEventListener('change',()=>{
+      const brigade=state.brigades.find(item=>item.id===brigadeSelect.value);
+      rateInput.value=brigade?.defaultRatePerOpening??'';
+    });
+  }
 }
 
 function createNewApartment(ctx){
@@ -230,18 +250,23 @@ function createNewDoor(ctx){
 }
 
 function createNewBrigade(){
-  openDataEntryModal('Новая бригада',[
+  const fields=[
     {id:'name',label:'Название бригады',required:true},
     {id:'leader',label:'Бригадир',required:true},
     {id:'phone',label:'Телефон'},
     {id:'workers',label:'Количество сотрудников',type:'number',value:1,min:1,step:1,required:true},
-    {id:'pricePerDoor',label:'Оплата за дверь, сом',type:'number',value:0,min:0,step:'0.01'},
-  ],values=>{
-    const name=values.name.trim(),leader=values.leader.trim(),workers=Number(values.workers),price=Number(values.pricePerDoor)||0;
-    if(!name||!leader||!Number.isInteger(workers)||workers<1||price<0){toast('Проверьте данные бригады');return false;}
+  ];
+  if(isAdminWorkspaceUser())fields.push({id:'defaultRatePerOpening',label:'Базовая цена за проём для новых этажей, сом',type:'number',value:'',min:0,step:'0.01'});
+  openDataEntryModal('Новая бригада',fields,async values=>{
+    const name=values.name.trim(),leader=values.leader.trim(),workers=Number(values.workers);
+    const defaultRate=isAdminWorkspaceUser()&&values.defaultRatePerOpening!==''?Number(values.defaultRatePerOpening):null;
+    if(!name||!leader||!Number.isInteger(workers)||workers<1||(defaultRate!==null&&(!Number.isFinite(defaultRate)||defaultRate<=0))){toast('Проверьте данные бригады');return false;}
     if(state.brigades.some(b=>b.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){toast('Такая бригада уже есть');return false;}
-    const brigade={id:newRecordId('br'),name,leader,phone:values.phone.trim(),workers,pricePerDoor:price,advance:0,paid:0};
-    state.brigades.push(brigade);saveState();render();toast('Бригада создана');return true;
+    const previousState=JSON.parse(JSON.stringify(state));
+    const brigade={id:newRecordId('br'),name,leader,phone:values.phone.trim(),workers,defaultRatePerOpening:defaultRate};
+    state.brigades.push(brigade);await saveState();
+    if(cloudEnabled&&cloudWriteBlocked){try{await readCloudState();}catch{state=previousState;}render();throw new Error('Бригада не сохранена. Обновите данные и повторите попытку.');}
+    render();toast('Бригада создана');return true;
   });
 }
 

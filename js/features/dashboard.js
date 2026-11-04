@@ -46,6 +46,7 @@ function pageDashboard(){
         <div class="summary-stat"><span>Бригад</span><strong>${state.brigades.length}</strong></div>
       </div>
     </section>
+    ${foremanFinanceCard()}
     <div class="kpi-grid">
       <div class="kpi"><div class="val">${objects.length}</div><div class="lbl">Объектов</div></div>
       <div class="kpi"><div class="val">${objects.reduce((s,o)=>s+o.blocks.length,0)}</div><div class="lbl">Блоков</div></div>

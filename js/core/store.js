@@ -23,6 +23,9 @@ let cloudPendingRemoteRevision=0;
 let cloudWriteBlocked=false;
 let cloudLoadingUserId=null;
 let cloudLoadPromise=null;
+let brigadeFinanceEntries=[];
+let foremanFinanceSummary=null;
+let brigadeFinanceError='';
 const CLOUD_REQUEST_TIMEOUT_MS=15000;
 
 function cloudAuthLinkType(){
@@ -77,10 +80,11 @@ function freshState(){
     ],
     problemsResolved:{}, // id -> true
     activityLog:[],
+    financeEntries:[],
   };
 }
 function emptyState(){
-  return {brigades:[],objects:[],requests:[],purchases:[],movements:[],problemsResolved:{},activityLog:[]};
+  return {brigades:[],objects:[],requests:[],purchases:[],movements:[],problemsResolved:{},activityLog:[],financeEntries:[]};
 }
 function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);return d.toISOString().slice(0,10);}
 
@@ -120,7 +124,35 @@ function normalizeCloudState(value){
     movements:Array.isArray(source.movements)?source.movements:[],
     problemsResolved:source.problemsResolved&&typeof source.problemsResolved==='object'?source.problemsResolved:{},
     activityLog:Array.isArray(source.activityLog)?source.activityLog:[],
+    financeEntries:Array.isArray(source.financeEntries)?source.financeEntries:[],
   });
+}
+
+async function refreshBrigadeFinance(){
+  brigadeFinanceError='';
+  if(!cloudEnabled){
+    brigadeFinanceEntries=Array.isArray(state?.financeEntries)?state.financeEntries:[];
+    foremanFinanceSummary=null;
+    return;
+  }
+  if(!supabaseClient||!cloudProfile)return;
+  try{
+    if(cloudProfile.role==='foreman'){
+      const {data,error}=await withCloudTimeout(supabaseClient.rpc('get_foreman_finance_summary'));
+      if(error)throw error;
+      foremanFinanceSummary=data||null;
+      brigadeFinanceEntries=[];
+    }else{
+      const {data,error}=await withCloudTimeout(supabaseClient.from('brigade_financial_entries').select('id,brigade_id,entry_type,amount,occurred_on,floor_id,opening_id,rate_per_opening,door_count,note,created_at,created_by').order('occurred_on',{ascending:false}).order('created_at',{ascending:false}));
+      if(error)throw error;
+      brigadeFinanceEntries=data||[];
+      foremanFinanceSummary=null;
+    }
+  }catch(error){
+    brigadeFinanceError=error.message||'Не удалось загрузить финансовый учёт';
+    brigadeFinanceEntries=[];
+    foremanFinanceSummary=null;
+  }
 }
 
 function stopCloudSubscription(){
@@ -141,6 +173,7 @@ async function readCloudState(){
     state=normalizeCloudState(data.state);
     cloudRevision=Number(data.revision);
   }
+  await refreshBrigadeFinance();
   cloudStatus='Общая база подключена';
   cloudError='';
 }
@@ -157,6 +190,9 @@ function subscribeToCloudState(){
       cloudRevision=incomingRevision;
       cloudStatus='Общая база подключена';
       if(typeof render==='function')render();
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'brigade_financial_entries'},()=>{
+      refreshBrigadeFinance().then(()=>{if(typeof render==='function')render();});
     })
     .subscribe(status=>{
       if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
@@ -203,7 +239,7 @@ async function initializeCloud(){
   supabaseClient=window.supabase.createClient(cloudConfig.supabaseUrl,cloudConfig.publishableKey);
   supabaseClient.auth.onAuthStateChange((event,session)=>{
     if(event==='SIGNED_OUT'){
-      cloudRecoveryActive=false;cloudPasswordSetupMode='recovery';stopCloudSubscription();cloudUser=null;state=null;cloudRevision=null;cloudProfile=null;cloudWriteBlocked=false;
+      cloudRecoveryActive=false;cloudPasswordSetupMode='recovery';stopCloudSubscription();cloudUser=null;state=null;cloudRevision=null;cloudProfile=null;cloudWriteBlocked=false;brigadeFinanceEntries=[];foremanFinanceSummary=null;brigadeFinanceError='';
       cloudStatus='Вход не выполнен';cloudError='';cloudInitialized=true;
       if(typeof render==='function')render();
     }else if(event==='PASSWORD_RECOVERY'&&session?.user){
@@ -255,7 +291,7 @@ async function persistCloudSnapshot(snapshot){
     });
     if(error)throw error;
     cloudRevision=Number(data);
-    cloudStatus='Общая база подключена';
+    cloudStatus='Общая база подключена';cloudError='';cloudWriteBlocked=false;
     if(cloudPendingRemoteRevision>cloudRevision){
       await readCloudState();
       if(typeof render==='function')render();
@@ -324,6 +360,60 @@ async function saveForemanOpeningWork(context,opening,submit=false,reportIssue=f
   }
   cloudRevision=Number(data);
   cloudStatus='Общая база подключена';cloudError='';
+  return true;
+}
+
+async function acceptOpeningWithAccrual(context){
+  if(!cloudEnabled){
+    if(!context.floor.brigadeId)throw new Error('Сначала назначьте бригаду на этот этаж.');
+    const rate=Number(context.floor.ratePerOpening);
+    if(!Number.isFinite(rate)||rate<=0)throw new Error('Сначала задайте тариф за проём для этого этажа.');
+    const doorCount=(context.opening.doors||[]).length;
+    const amount=rate+(doorCount===2?500:0);
+    context.opening.reviewStatus='accepted';
+    context.opening.acceptedAt=new Date().toISOString();
+    context.opening.doors.forEach(door=>door.status='accepted');
+    state.financeEntries=Array.isArray(state.financeEntries)?state.financeEntries:[];
+    const localId=window.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    state.financeEntries.unshift({
+      id:`accrual-${localId}`,
+      brigade_id:context.floor.brigadeId,
+      entry_type:'accrual',
+      amount,
+      occurred_on:new Date().toISOString().slice(0,10),
+      floor_id:context.floor.id,
+      opening_id:context.opening.id,
+      rate_per_opening:rate,
+      door_count:doorCount,
+      note:context.opening.title||'Принятый проём',
+      created_at:new Date().toISOString(),
+    });
+    await saveState();
+    refreshBrigadeFinance();
+    return true;
+  }
+  if(!supabaseClient||cloudRevision===null)throw new Error('Общая база ещё загружается. Повторите попытку.');
+  const {data,error}=await withCloudTimeout(supabaseClient.rpc('accept_opening_with_accrual',{
+    p_expected_revision:cloudRevision,
+    p_object_id:context.obj.id,
+    p_block_id:context.block.id,
+    p_floor_id:context.floor.id,
+    p_apartment_id:context.apt.id,
+    p_opening_id:context.opening.id,
+  }));
+  if(error){
+    if(String(error.message||'').includes('accept_opening_with_accrual'))throw new Error('Сначала выполните js/data/data-base-finance.sql в Supabase.');
+    if(String(error.message||'').includes('TARIFF_REQUIRED'))throw new Error('Сначала задайте тариф за проём для этого этажа.');
+    if(error.code==='40001'||String(error.message||'').includes('WORKSPACE_CONFLICT')){
+      await readCloudState();
+      if(typeof render==='function')render();
+      throw new Error('Данные обновились. Проверьте проём и примите его ещё раз.');
+    }
+    throw error;
+  }
+  cloudRevision=Number(data);
+  cloudStatus='Общая база подключена';cloudError='';cloudWriteBlocked=false;
+  await readCloudState();
   return true;
 }
 

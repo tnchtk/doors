@@ -267,13 +267,15 @@ function openOpeningReturnModal(context){
 
 async function reviewOpening(context,status,note){
   if(status==='accepted'&&context.opening.reviewStatus!=='pending'){toast('Менеджер принимает проём после полной проверки');return;}
-  context.opening.reviewStatus=status;context.opening.managerNote=note;
   if(status==='accepted'){
-    context.opening.acceptedAt=new Date().toISOString();
-    context.opening.doors.forEach(door=>door.status='accepted');
-  }else context.opening.acceptedAt=null;
+    try{await acceptOpeningWithAccrual(context);}
+    catch(error){toast(error.message||'Не удалось принять проём');render();return;}
+    toast('Проём принят, начисление добавлено в баланс бригады');render();return;
+  }
+  context.opening.reviewStatus=status;context.opening.managerNote=note;
+  context.opening.acceptedAt=null;
   try{await saveManagerOpeningState();}catch(error){toast(error.message);render();return;}
-  toast(status==='accepted'?'Проём принят':'Замечание отправлено бригадиру');render();
+  toast('Замечание отправлено бригадиру');render();
 }
 
 function pageProblems(){

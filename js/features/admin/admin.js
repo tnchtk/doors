@@ -27,17 +27,18 @@ function pageAdmin(){
       </tbody></table></div>
     </div>
     <div class="panel"><div class="panel-head"><div><h3>Бригады</h3><span class="hint">Бригада назначается на этаж; бригадир увидит свои этажи</span></div><button class="btn primary sm" data-create-brigade>+ Новая бригада</button></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Бригада</th><th>Бригадир</th><th>Телефон</th><th>Сотрудники</th><th></th></tr></thead><tbody>
-      ${state.brigades.map(b=>`<tr><td>${adminEsc(b.name)}</td><td>${adminEsc(b.leader)}</td><td>${adminEsc(b.phone)}</td><td>${Number(b.workers)||0}</td><td><button class="btn sm" data-admin-edit-brigade="${adminEsc(b.id)}">Изменить</button></td></tr>`).join('')||'<tr><td colspan="5"><div class="empty">Бригад пока нет.</div></td></tr>'}
+      <div class="tbl-wrap"><table><thead><tr><th>Бригада</th><th>Бригадир</th><th>Телефон</th><th>Сотрудники</th><th>Базовый тариф</th><th></th></tr></thead><tbody>
+      ${state.brigades.map(b=>`<tr><td>${adminEsc(b.name)}</td><td>${adminEsc(b.leader)}</td><td>${adminEsc(b.phone)}</td><td>${Number(b.workers)||0}</td><td class="mono">${Number(b.defaultRatePerOpening)>0?`${Number(b.defaultRatePerOpening).toLocaleString('ru-RU')} сом`:'—'}</td><td><button class="btn sm" data-admin-edit-brigade="${adminEsc(b.id)}">Изменить</button></td></tr>`).join('')||'<tr><td colspan="6"><div class="empty">Бригад пока нет.</div></td></tr>'}
       </tbody></table></div>
     </div>
+    ${brigadeFinanceAdminPanel()}
     ${cloudEnabled?`
     <div class="panel"><div class="panel-head"><div><h3>Сотрудники и роли</h3><span class="hint">${activeProfiles} из 10 активных учетных записей</span></div><button class="btn primary sm" data-admin-invite>+ Пригласить сотрудника</button></div>
       <p class="admin-note">Сотрудник создаст пароль по ссылке из письма. После приглашения назначьте роль и при необходимости выберите бригаду.</p>
       <div id="adminTeamArea">${adminTeamTable(adminProfilesCache)}</div>
     </div>`:`<div class="panel"><div class="panel-head"><h3>Сотрудники и роли</h3></div><p class="admin-note admin-warning">Управление учетными записями доступно после подключения Supabase.</p></div>`}
     <div class="panel"><div class="panel-head"><h3>Резервные копии</h3></div>
-      <p class="admin-note">JSON-копия содержит объекты, двери, заявки, закупки и складские движения.</p>
+      <p class="admin-note">JSON-копия содержит объекты, двери, заявки, закупки и складские движения. Финансовый журнал скачивается отдельно в разделе тарифов.</p>
       <div class="admin-actions"><button class="btn primary" data-admin-backup>Скачать копию JSON</button><label class="btn" for="adminImport">Восстановить из JSON</label><input id="adminImport" type="file" accept="application/json,.json" hidden>${cloudEnabled?'':'<button class="btn" data-admin-reset>Сбросить демо данные</button>'}</div>
       ${cloudEnabled?'':'<p class="admin-note admin-warning">Локальный режим хранит данные только в этом браузере.</p>'}
     </div>`;
@@ -70,7 +71,7 @@ function openAdminEditModal({title, fields, onSave}){
   overlay.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
     <h3 id="adminModalTitle">${adminEsc(title)}</h3>
     <form data-admin-form>
-      ${fields.map(f=>`<div class="field"><label for="${adminEsc(f.id)}">${adminEsc(f.label)}</label><input id="${adminEsc(f.id)}" name="${adminEsc(f.id)}" type="${f.type||'text'}" value="${adminEsc(f.value)}" ${f.min!==undefined?`min="${f.min}"`:''} ${f.required?'required':''}></div>`).join('')}
+      ${fields.map(f=>`<div class="field"><label for="${adminEsc(f.id)}">${adminEsc(f.label)}</label><input id="${adminEsc(f.id)}" name="${adminEsc(f.id)}" type="${f.type||'text'}" value="${adminEsc(f.value)}" ${f.min!==undefined?`min="${f.min}"`:''} ${f.step!==undefined?`step="${f.step}"`:''} ${f.required?'required':''}></div>`).join('')}
       <div class="modal-actions"><button type="button" class="btn ghost" data-cancel>Отмена</button><button type="submit" class="btn primary">Сохранить</button></div>
     </form>
   </div>`;
@@ -160,9 +161,14 @@ async function bindAdminEvents(container){
       {id:'leader',label:'Имя бригадира',value:b.leader,required:true},
       {id:'phone',label:'Телефон',value:b.phone},
       {id:'workers',label:'Количество сотрудников',value:b.workers,type:'number',min:1,required:true},
-    ],onSave:values=>{
-      if(!values.leader.trim()||!Number.isInteger(Number(values.workers))||Number(values.workers)<1){toast('Проверьте имя и количество сотрудников');return false;}
-      b.leader=values.leader.trim();b.phone=values.phone.trim();b.workers=Number(values.workers);saveState();render();toast('Бригада обновлена');return true;
+      {id:'defaultRatePerOpening',label:'Базовая цена за проём для новых этажей, сом',value:b.defaultRatePerOpening??'',type:'number',min:0,step:'0.01'},
+    ],onSave:async values=>{
+      const defaultRate=values.defaultRatePerOpening===''?null:Number(values.defaultRatePerOpening);
+      if(!values.leader.trim()||!Number.isInteger(Number(values.workers))||Number(values.workers)<1||(defaultRate!==null&&(!Number.isFinite(defaultRate)||defaultRate<=0))){toast('Проверьте имя, количество сотрудников и цену');return false;}
+      const previous={leader:b.leader,phone:b.phone,workers:b.workers,defaultRatePerOpening:b.defaultRatePerOpening};
+      b.leader=values.leader.trim();b.phone=values.phone.trim();b.workers=Number(values.workers);b.defaultRatePerOpening=defaultRate;await saveState();
+      if(cloudEnabled&&cloudWriteBlocked){Object.assign(b,previous);try{await readCloudState();}catch{}render();throw new Error('Бригада не обновлена. Проверьте подключение и повторите попытку.');}
+      render();toast('Бригада обновлена');return true;
     }});
   }));
   container.querySelector('[data-admin-invite]')?.addEventListener('click',()=>openAdminEditModal({

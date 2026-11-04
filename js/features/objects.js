@@ -81,6 +81,7 @@ function floorList(obj, block){
         return `<div class="tile" data-open-floor="${f.id}">
           <div class="t-name">${f.num} этаж</div>
           <div class="t-meta">${brigade?brigade.name:'—'} · ${ot} дверей</div>
+          ${isAdminWorkspaceUser()?`<div class="floor-rate-control"><span>${Number(f.ratePerOpening)>0?`${Number(f.ratePerOpening).toLocaleString('ru-RU')} сом/проём`:'Тариф не задан'}</span><button type="button" class="btn sm" data-floor-rate='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:f.id}))}'>Тариф</button></div>`:''}
           <div class="t-progress">
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
             <span class="t-pct">${pct}%</span>
