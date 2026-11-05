@@ -22,6 +22,10 @@ function bindPageEvents(){
     editExistingBlock(JSON.parse(el.dataset.editBlock));
   }));
   c.querySelectorAll('[data-create-floor]').forEach(el=>el.addEventListener('click',()=>createNewFloor(JSON.parse(el.dataset.createFloor))));
+  c.querySelectorAll('[data-copy-floor]').forEach(el=>el.addEventListener('click',event=>{
+    event.stopPropagation();
+    openCopyFloorModal(JSON.parse(el.dataset.copyFloor));
+  }));
   c.querySelectorAll('[data-floor-rate]').forEach(el=>el.addEventListener('click',event=>{
     event.stopPropagation();
     openFloorFinanceEditor(JSON.parse(el.dataset.floorRate));
@@ -219,6 +223,61 @@ function createNewFloor(ctx){
       rateInput.value=brigade?.defaultRatePerOpening??'';
     });
   }
+}
+
+function openCopyFloorModal(ctx){
+  if(!canManageWorkspace()||(cloudEnabled&&cloudProfile?.role==='foreman')){toast('Копировать этажи может администратор или менеджер');return;}
+  const obj=state.objects.find(item=>item.id===ctx.objId),block=obj?.blocks.find(item=>item.id===ctx.blockId),source=block?.floors.find(item=>item.id===ctx.floorId);
+  if(!obj||!block||!source)return;
+  const nextFloorNumber=Math.max(0,...block.floors.map(item=>Number(item.num)||0))+1;
+  const sourceApartments=source.apartments||[];
+  const canRenumberApartments=sourceApartments.length>0&&sourceApartments.every(item=>Number.isSafeInteger(Number(item.num))&&Number(item.num)>0);
+  const apartmentNumbers=block.floors.flatMap(item=>item.apartments||[]).map(item=>Number(item.num)).filter(value=>Number.isSafeInteger(value)&&value>0);
+  const firstApartmentNumber=Math.max(0,...apartmentNumbers)+1;
+  const fields=[{id:'num',label:'Номер нового этажа',type:'number',value:nextFloorNumber,min:1,step:1,required:true}];
+  if(canRenumberApartments)fields.push({id:'firstApartmentNumber',label:'Номер первой квартиры (остальные по порядку)',type:'number',value:firstApartmentNumber,min:1,step:1,required:true});
+  openDataEntryModal(`Копировать этаж ${source.num}`,fields,async values=>{
+    const num=Number(values.num);
+    if(!Number.isSafeInteger(num)||num<1){toast('Укажите корректный номер этажа');return false;}
+    if(block.floors.some(item=>Number(item.num)===num)){toast('Такой этаж в блоке уже есть');return false;}
+    const firstAptNum=canRenumberApartments?Number(values.firstApartmentNumber):null;
+    if(canRenumberApartments&&(!Number.isSafeInteger(firstAptNum)||firstAptNum<1||firstAptNum+sourceApartments.length-1>Number.MAX_SAFE_INTEGER)){
+      toast('Укажите корректный первый номер квартиры');return false;
+    }
+    const duplicate={
+      id:newRecordId('f'),
+      num,
+      brigadeId:source.brigadeId||null,
+      ratePerOpening:source.ratePerOpening??null,
+      apartments:sourceApartments.map((apartment,apartmentIndex)=>({
+        id:newRecordId('apt'),
+        num:canRenumberApartments?String(firstAptNum+apartmentIndex):apartment.num,
+        openings:(apartment.openings||[]).map((opening,openingIndex)=>({
+          id:newRecordId('op'),
+          type:OPENING_TYPE_LABELS[opening.type]?opening.type:'custom',
+          n:Number(opening.n)||openingIndex+1,
+          title:opening.title||`${OPENING_TYPE_LABELS[opening.type]||OPENING_TYPE_LABELS.custom} ${Number(opening.n)||openingIndex+1}`,
+          doors:(opening.doors||[]).map((door,doorIndex)=>makeDoorLeaf(doorIndex+1,Boolean(door.glass))),
+          reviewStatus:'not_submitted',
+          foremanNote:'',
+          managerNote:'',
+          submittedAt:null,
+          acceptedAt:null,
+        })),
+      })),
+    };
+    const previousState=JSON.parse(JSON.stringify(state));
+    block.floors.push(duplicate);
+    await saveState();
+    if(cloudEnabled&&cloudWriteBlocked){
+      try{await readCloudState();}catch{state=previousState;}
+      render();
+      throw new Error('Этаж не скопирован. Обновите данные и повторите попытку.');
+    }
+    goto('objects',{objId:obj.id,blockId:block.id,floorId:duplicate.id});
+    toast(`Этаж ${num} скопирован. Состав, бригада и тариф перенесены; статусы, фото и история выплат — нет.`);
+    return true;
+  });
 }
 
 function createNewApartment(ctx){

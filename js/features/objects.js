@@ -78,7 +78,7 @@ function floorList(obj, block){
         const c=countByStatus(doors.map(d=>({door:d}))); const ot=totalCount(c); const done=doneCount(c);
         const pct= ot?Math.round(done/ot*100):0;
         const brigade=state.brigades.find(b=>b.id===f.brigadeId);
-        return `<div class="tile" data-open-floor="${f.id}">
+        return `<div class="floor-tile-wrap"><div class="tile" data-open-floor="${htmlEscape(f.id)}">
           <div class="t-name">${f.num} этаж</div>
           <div class="t-meta">${brigade?brigade.name:'—'} · ${ot} дверей</div>
           ${isAdminWorkspaceUser()?`<div class="floor-rate-control"><span>${Number(f.ratePerOpening)>0?`${Number(f.ratePerOpening).toLocaleString('ru-RU')} сом/проём`:'Тариф не задан'}</span><button type="button" class="btn sm" data-floor-rate='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:f.id}))}'>Тариф</button></div>`:''}
@@ -86,7 +86,7 @@ function floorList(obj, block){
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
             <span class="t-pct">${pct}%</span>
           </div>
-        </div>`;
+        </div>${canManageWorkspace()?`<button type="button" class="btn sm floor-copy-button" aria-label="Скопировать этаж ${htmlEscape(f.num)}" data-copy-floor='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:f.id}))}'>Копировать этаж</button>`:''}</div>`;
       }).join('')}
     </div>
   `;
