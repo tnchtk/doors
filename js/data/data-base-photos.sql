@@ -178,7 +178,19 @@ BEGIN
               IF COALESCE(p_submit,false) AND (v_status<>'installed' OR jsonb_array_length(v_update->'photos')=0) THEN
                 RAISE EXCEPTION 'Перед отправкой установите дверь и добавьте фото' USING ERRCODE='22023';
               END IF;
-              v_doors:=v_doors||jsonb_build_array(v_door_row.value||jsonb_build_object('status',v_status,'photos',v_update->'photos'));
+              v_doors:=v_doors||jsonb_build_array(
+                v_door_row.value||jsonb_build_object(
+                  'status',v_status,
+                  'photos',v_update->'photos',
+                  'installedAt',CASE
+                    WHEN v_status='installed' THEN CASE
+                      WHEN v_door_row.value->>'status'='installed' THEN COALESCE(v_door_row.value->'installedAt','null'::jsonb)
+                      ELSE to_jsonb(now()::text)
+                    END
+                    ELSE 'null'::jsonb
+                  END
+                )
+              );
               v_update:=NULL;
             END LOOP;
             v_updated_opening:=v_opening||jsonb_build_object(

@@ -157,6 +157,8 @@ function bindOpeningEvents(container){
   container.querySelectorAll('[data-door-work-status]').forEach(element=>element.addEventListener('change',async()=>{
     const context=findOpeningContext(JSON.parse(element.dataset.doorWorkStatus));if(!context)return;
     const door=context.opening.doors.find(item=>item.id===JSON.parse(element.dataset.doorWorkStatus).doorId);if(!door)return;
+    if(element.value==='installed'&&door.status!=='installed')door.installedAt=new Date().toISOString();
+    else if(element.value!=='installed')door.installedAt=null;
     door.status=element.value;
     await persistOpeningWork(context,false);
   }));

@@ -370,9 +370,10 @@ async function acceptOpeningWithAccrual(context){
     if(!Number.isFinite(rate)||rate<=0)throw new Error('Сначала задайте тариф за проём для этого этажа.');
     const doorCount=(context.opening.doors||[]).length;
     const amount=rate+(doorCount===2?500:0);
+    const acceptedAt=new Date().toISOString();
     context.opening.reviewStatus='accepted';
-    context.opening.acceptedAt=new Date().toISOString();
-    context.opening.doors.forEach(door=>door.status='accepted');
+    context.opening.acceptedAt=acceptedAt;
+    context.opening.doors.forEach(door=>{door.status='accepted';door.installedAt=door.installedAt||acceptedAt;});
     state.financeEntries=Array.isArray(state.financeEntries)?state.financeEntries:[];
     const localId=window.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
     state.financeEntries.unshift({

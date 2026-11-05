@@ -87,7 +87,7 @@ function pageDashboard(){
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h3>Сегодня</h3></div>
+        <div class="panel-head"><div><h3>Сегодня</h3><span class="hint">По сохранённым датам установки</span></div></div>
         <div style="display:flex;flex-direction:column;gap:10px;">
           ${state.brigades.slice(0,6).map(b=>{
             const installedToday = installedTodayFor(b.id);
@@ -109,9 +109,25 @@ function pageDashboard(){
 }
 
 function installedTodayFor(brigadeId){
-  // deterministic pseudo "today" number derived from brigade id, for demo flavor
-  const seed = brigadeId.charCodeAt(2)*13 % 23;
-  return Math.max(6, seed);
+  const todayEnd=new Date();todayEnd.setHours(24,0,0,0);
+  const todayStart=new Date(todayEnd);todayStart.setDate(todayStart.getDate()-1);
+  return installedCountBetween(brigadeId,todayStart,todayEnd);
+}
+
+function installedLastSevenDaysFor(brigadeId){
+  const end=new Date();end.setHours(24,0,0,0);
+  const start=new Date(end);start.setDate(start.getDate()-7);
+  return installedCountBetween(brigadeId,start,end);
+}
+
+function installedCountBetween(brigadeId,start,end){
+  return allDoors(state).filter(({door,opening,floor})=>{
+    if(floor.brigadeId!==brigadeId||!['installed','accepted'].includes(door.status))return false;
+    const dateValue=door.installedAt||opening.submittedAt||(door.status==='accepted'?opening.acceptedAt:null);
+    if(!dateValue)return false;
+    const installedAt=new Date(dateValue);
+    return !Number.isNaN(installedAt.getTime())&&installedAt>=start&&installedAt<end;
+  }).length;
 }
 
 /* =========================================================================
