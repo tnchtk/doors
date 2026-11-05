@@ -28,6 +28,8 @@
 .opening-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
 .opening-card-head h3{margin:4px 0 5px;font-size:18px;line-height:1.2;letter-spacing:-.025em}
 .opening-card-head p{margin:0;color:var(--text-dim);font-size:12px}
+.opening-card-tools{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.opening-card-tools .btn{white-space:nowrap}
 .opening-kicker{color:var(--accent);font-size:11px;font-weight:650;letter-spacing:.045em;text-transform:uppercase}
 .opening-components{padding:12px 14px;margin-bottom:14px;border:1px solid var(--line-soft);border-radius:12px;background:rgba(255,255,255,.018)}
 .opening-components>span{font-size:11px;color:var(--text-faint);font-weight:600}
@@ -38,6 +40,7 @@
 .opening-doors{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
 .opening-door-row{min-width:0;padding:14px;border:1px solid var(--line-soft);border-radius:14px;background:var(--bg-2)}
 .opening-door-main{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.opening-delete-door{margin-left:auto}
 .opening-door-main>div:first-child{display:grid;gap:5px}
 .opening-door-main strong{font-size:13px;font-weight:600}
 .opening-door-main>div:first-child span{font-size:11px;color:var(--text-faint)}
@@ -90,8 +93,11 @@
 }
 @media(max-width:520px){
   .apartment-spec-summary{align-items:flex-start;flex-direction:column}
+  .opening-heading-actions{width:100%}
+  .opening-heading-actions .btn{flex:1 1 auto}
   .opening-card{padding:16px}
   .opening-card-head{align-items:flex-start}
+  .opening-card-tools{justify-content:flex-start}
   .opening-card-head .pill{font-size:10px}
   .opening-actions{display:grid;grid-template-columns:1fr}
   .opening-actions .btn{width:100%}
