@@ -11,12 +11,12 @@ function apartmentList(obj,block,floor){
         const accepted=(apt.openings||[]).filter(acceptedOpening).length;
         const pct=doors.length?Math.round(c.accepted/doors.length*100):0;
         const flags=(apt.openings||[]).filter(opening=>['issue_reported','pending','changes_requested'].includes(opening.reviewStatus)).length;
-        return `<article class="tile apartment-opening-tile" data-open-apt="${htmlEscape(apt.id)}" tabindex="0" role="button" aria-label="Открыть квартиру ${htmlEscape(apt.num)}">
+        return `<div class="apartment-tile-wrap"><article class="tile apartment-opening-tile" data-open-apt="${htmlEscape(apt.id)}" tabindex="0" role="button" aria-label="Открыть квартиру ${htmlEscape(apt.num)}">
           <div class="t-name">Квартира ${htmlEscape(apt.num)}</div>
           <div class="t-meta">${(apt.openings||[]).length} проёмов · ${doors.length} дверей · принято ${accepted}</div>
           <div class="t-progress"><div class="bar"><span style="width:${pct}%"></span></div><span class="t-pct">${pct}%</span></div>
           ${flags?`<span class="pill ${apt.openings.some(opening=>opening.reviewStatus==='changes_requested')?'warn':'info'}">${flags} требуют внимания</span>`:''}
-        </article>`;
+        </article>${canManageWorkspace()?`<button type="button" class="btn sm apartment-copy-button" aria-label="Скопировать состав квартиры ${htmlEscape(apt.num)}" data-copy-apartment='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id}))}'>Копировать квартиру</button>`:''}</div>`;
       }).join('')||'<div class="empty">На этаже пока нет квартир</div>'}
     </div>`;
 }
@@ -94,6 +94,41 @@ function openingTemplateEditable(apartment){
   return openings.length>0&&openings.every(opening=>opening.reviewStatus==='not_submitted'&&opening.doors.every(door=>door.status==='not_started'&&!(door.photos||[]).length));
 }
 
+function openCopyApartmentModal(ids){
+  if(!canManageWorkspace()||isForemanWorkspaceUser()){toast('Копировать квартиры может администратор или менеджер');return;}
+  const obj=state.objects.find(item=>item.id===ids.objId),block=obj?.blocks.find(item=>item.id===ids.blockId),floor=block?.floors.find(item=>item.id===ids.floorId),source=floor?.apartments.find(item=>item.id===ids.aptId);
+  if(!obj||!block||!floor||!source)return;
+  const numbers=floor.apartments.map(item=>Number(String(item.num).trim())).filter(value=>Number.isInteger(value)&&value>0);
+  const suggestedNumber=String(Math.max(0,...numbers)+1);
+  openDataEntryModal(`Копировать квартиру ${source.num}`,[
+    {id:'num',label:'Номер новой квартиры',value:suggestedNumber,required:true},
+  ],async values=>{
+    const num=String(values.num||'').trim();
+    if(!num){toast('Введите номер новой квартиры');return false;}
+    if(floor.apartments.some(item=>String(item.num).trim().toLocaleLowerCase()===num.toLocaleLowerCase())){toast('Такая квартира на этаже уже есть');return false;}
+    const duplicate={
+      id:openingId('apt'),
+      num,
+      openings:(source.openings||[]).map((opening,index)=>({
+        id:openingId(),
+        type:OPENING_TYPE_LABELS[opening.type]?opening.type:'custom',
+        n:Number(opening.n)||index+1,
+        title:opening.title||`${OPENING_TYPE_LABELS[opening.type]||OPENING_TYPE_LABELS.custom} ${Number(opening.n)||index+1}`,
+        doors:(opening.doors||[]).map((door,doorIndex)=>makeDoorLeaf(doorIndex+1,Boolean(door.glass))),
+        reviewStatus:'not_submitted',
+        foremanNote:'',
+        managerNote:'',
+        submittedAt:null,
+        acceptedAt:null,
+      })),
+    };
+    floor.apartments.push(duplicate);
+    try{await saveManagerOpeningState();}
+    catch(error){floor.apartments=floor.apartments.filter(item=>item.id!==duplicate.id);render();throw error;}
+    render();toast(`Квартира ${num} скопирована. Статусы, фото и замечания очищены.`);return true;
+  });
+}
+
 const bindPageEventsBeforeOpenings=bindPageEvents;
 bindPageEvents=function(){
   bindPageEventsBeforeOpenings();
@@ -105,6 +140,10 @@ function bindOpeningEvents(container){
   container.querySelectorAll('[data-open-apt]').forEach(element=>{
     element.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();goto('objects',{objId:route.objId,blockId:route.blockId,floorId:route.floorId,aptId:element.dataset.openApt});}});
   });
+  container.querySelectorAll('[data-copy-apartment]').forEach(element=>element.addEventListener('click',event=>{
+    event.stopPropagation();
+    openCopyApartmentModal(JSON.parse(element.dataset.copyApartment));
+  }));
   container.querySelector('[data-configure-template]')?.addEventListener('click',event=>openApartmentTemplate(JSON.parse(event.currentTarget.dataset.configureTemplate)));
   container.querySelectorAll('[data-door-work-status]').forEach(element=>element.addEventListener('change',async()=>{
     const context=findOpeningContext(JSON.parse(element.dataset.doorWorkStatus));if(!context)return;

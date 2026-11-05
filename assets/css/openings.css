@@ -8,10 +8,12 @@
 .opening-floor-note{display:flex;justify-content:space-between;align-items:center;gap:var(--opening-space-2);padding:16px 20px;color:var(--text-dim);font-size:13px}
 .opening-floor-note strong{color:var(--text);font-weight:600}
 .opening-section-head{margin:24px 0 12px}
+.apartment-tile-wrap{display:flex;flex-direction:column;gap:8px;min-width:0}
 .apartment-opening-tile{min-height:132px;transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
 .apartment-opening-tile:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .apartment-opening-tile .t-progress{margin-top:14px}
 .apartment-opening-tile .bar>span{background:var(--accent)}
+.apartment-copy-button{width:100%;min-height:38px}
 .apartment-spec-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
 .apartment-spec-summary h3{margin-top:6px;font-size:20px;line-height:1.2;letter-spacing:-.03em}
 .apartment-spec-summary p{margin:8px 0 0;color:var(--text-dim);font-size:13px}
