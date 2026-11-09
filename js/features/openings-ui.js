@@ -30,6 +30,16 @@ const FLOOR_DOOR_TYPES=[
   {type:'double_solid',label:'Двойная глухая дверь',double:true,glass:false},
 ];
 
+function floorDoorFormRow(index){
+  return `<div class="floor-door-form-row" data-floor-door-row>
+    <div class="floor-door-row-head"><strong data-floor-door-row-title>Позиция ${index+1}</strong>${index?`<button type="button" class="btn sm ghost" data-remove-floor-door-row aria-label="Удалить позицию ${index+1}">Убрать</button>`:''}</div>
+    <label class="field"><span>Тип двери</span><select data-floor-door-double><option value="single">Одинарная</option><option value="double">Двойная</option></select></label>
+    <label class="field"><span>Исполнение</span><select data-floor-door-glass><option value="solid">Глухая</option><option value="glass">Со стеклом</option></select></label>
+    <label class="field"><span>Количество</span><input type="number" value="1" min="0" max="500" step="1" inputmode="numeric" data-floor-door-count></label>
+    <label class="field"><span data-floor-door-width-label>Ширина двери, мм</span><input type="number" min="1" max="5000" step="1" inputmode="numeric" placeholder="Например, 800" data-floor-door-width></label>
+  </div>`;
+}
+
 function openFloorDoorBatchModal(ids){
   if(!canManageWorkspace()||isForemanWorkspaceUser()){toast('Добавлять двери может администратор или менеджер');return;}
   const obj=state.objects.find(item=>item.id===ids.objId);
@@ -39,16 +49,11 @@ function openFloorDoorBatchModal(ids){
   const overlay=document.createElement('div');
   overlay.className='overlay';
   overlay.innerHTML=`<div class="modal floor-door-modal" role="dialog" aria-modal="true" aria-labelledby="floorDoorTitle">
-    <h3 id="floorDoorTitle">Добавить двери · ${htmlEscape(floor.num)} этаж</h3>
-    <p class="hint">Для каждой позиции укажите количество и размер в миллиметрах. Для двойной двери ширина указывается на одну створку.</p>
+    <div class="floor-door-modal-head"><h3 id="floorDoorTitle">Добавить двери · ${htmlEscape(floor.num)} этаж</h3><button type="button" class="btn primary sm" data-add-floor-door-row>+ Позиция</button></div>
+    <p class="hint">Для каждой позиции выберите тип и исполнение двери, укажите количество и ширину. Для двойной двери задаётся ширина одной створки.</p>
     <div class="opening-template-note">Двойная дверь — один проём из двух полотен. При принятии к тарифу за проём добавится 500 сомов.</div>
     <form>
-      <div class="floor-door-form-list">${FLOOR_DOOR_TYPES.map(item=>`<div class="floor-door-form-row">
-        <div class="floor-door-kind"><strong>${item.label}</strong><span>${item.double?'1 проём · 2 полотна':'1 проём · 1 полотно'}</span></div>
-        <label class="field"><span>Количество</span><input type="number" name="count_${item.type}" value="0" min="0" max="500" step="1" inputmode="numeric" aria-label="Количество · ${item.label}"></label>
-        <label class="field"><span>Ширина ${item.double?'створки':'двери'}, мм</span><input type="number" name="width_${item.type}" min="1" max="5000" step="1" inputmode="numeric" placeholder="Например, 700" aria-label="Ширина ${item.double?'створки':'двери'}, миллиметры · ${item.label}"></label>
-        <label class="field"><span>Высота, мм</span><input type="number" name="height_${item.type}" min="1" max="5000" step="1" inputmode="numeric" placeholder="Например, 2000" aria-label="Высота, миллиметры · ${item.label}"></label>
-      </div>`).join('')}</div>
+      <div class="floor-door-form-list">${floorDoorFormRow(0)}</div>
       <div class="modal-actions"><button type="button" class="btn ghost" data-cancel>Отмена</button><button type="submit" class="btn primary">Добавить двери</button></div>
     </form>
   </div>`;
@@ -56,19 +61,48 @@ function openFloorDoorBatchModal(ids){
   const close=()=>overlay.remove();
   overlay.querySelector('[data-cancel]').addEventListener('click',close);
   overlay.addEventListener('click',event=>{if(event.target===overlay)close();});
+  const rowList=overlay.querySelector('.floor-door-form-list');
+  const updateRows=()=>{
+    const rows=[...rowList.querySelectorAll('[data-floor-door-row]')];
+    rows.forEach((row,index)=>{
+      row.querySelector('[data-floor-door-row-title]').textContent=`Позиция ${index+1}`;
+      const remove=row.querySelector('[data-remove-floor-door-row]');
+      if(remove)remove.setAttribute('aria-label',`Удалить позицию ${index+1}`);
+      row.querySelector('[data-floor-door-width-label]').textContent=row.querySelector('[data-floor-door-double]').value==='double'?'Ширина створки, мм':'Ширина двери, мм';
+    });
+  };
+  overlay.querySelector('[data-add-floor-door-row]').addEventListener('click',()=>{
+    const count=rowList.querySelectorAll('[data-floor-door-row]').length;
+    if(count>=20){toast('Можно добавить не больше 20 позиций за раз');return;}
+    rowList.insertAdjacentHTML('beforeend',floorDoorFormRow(count));
+    updateRows();
+    rowList.lastElementChild.querySelector('[data-floor-door-double]').focus();
+  });
+  rowList.addEventListener('change',event=>{
+    if(event.target.matches('[data-floor-door-double]'))updateRows();
+  });
+  rowList.addEventListener('click',event=>{
+    const remove=event.target.closest('[data-remove-floor-door-row]');
+    if(!remove)return;
+    remove.closest('[data-floor-door-row]').remove();
+    updateRows();
+  });
   overlay.querySelector('form').addEventListener('submit',async event=>{
     event.preventDefault();
     const form=event.currentTarget;
     const submit=form.querySelector('[type="submit"]');
     const rows=[];
-    for(const item of FLOOR_DOOR_TYPES){
-      const count=Number(form.elements[`count_${item.type}`].value);
-      const widthMm=Number(form.elements[`width_${item.type}`].value);
-      const heightMm=Number(form.elements[`height_${item.type}`].value);
-      if(!Number.isInteger(count)||count<0||count>500){toast(`Проверьте количество: ${item.label.toLocaleLowerCase()}`);return;}
+    for(const [index,row] of [...rowList.querySelectorAll('[data-floor-door-row]')].entries()){
+      const double=row.querySelector('[data-floor-door-double]').value==='double';
+      const glass=row.querySelector('[data-floor-door-glass]').value==='glass';
+      const count=Number(row.querySelector('[data-floor-door-count]').value);
+      const widthMm=Number(row.querySelector('[data-floor-door-width]').value);
+      const type=`${double?'double':'single'}_${glass?'glass':'solid'}`;
+      const item=FLOOR_DOOR_TYPES.find(option=>option.type===type);
+      if(!Number.isInteger(count)||count<0||count>500){toast(`Проверьте количество в позиции ${index+1}`);return;}
       if(!count)continue;
-      if(!Number.isInteger(widthMm)||widthMm<1||widthMm>5000||!Number.isInteger(heightMm)||heightMm<1||heightMm>5000){toast(`Укажите ширину и высоту в миллиметрах: ${item.label.toLocaleLowerCase()}`);return;}
-      rows.push({...item,count,widthMm,heightMm});
+      if(!Number.isInteger(widthMm)||widthMm<1||widthMm>5000){toast(`Укажите ширину двери в позиции ${index+1}`);return;}
+      rows.push({...item,count,widthMm});
     }
     if(!rows.length){toast('Укажите количество хотя бы в одной строке');return;}
     const previousState=JSON.parse(JSON.stringify(state));
@@ -85,9 +119,10 @@ function openFloorDoorBatchModal(ids){
       for(let index=0;index<row.count;index++){
         number++;
         const opening=makeOpening(row.type,number);
-        opening.title=`${row.label} ${number} · ${row.widthMm} × ${row.heightMm} мм${row.double?' / створка':''}`;
-        opening.doors=opening.doors.map(door=>({...door,widthMm:row.widthMm,heightMm:row.heightMm}));
+        opening.title=`${row.label} ${number} · ${row.double?'ширина створки':'ширина'} ${row.widthMm} мм`;
+        opening.doors=opening.doors.map(door=>({...door,widthMm:row.widthMm}));
         floorEntry.openings.push(opening);
+        floorOpenings.push(opening);
       }
     }
     submit.disabled=true;
@@ -138,8 +173,8 @@ function renderOpeningCard(context,opening,permissions){
   const canEditStructure=permissions.manager&&!openingStructureLocked(opening);
   const cards=(opening.doors||[]).map(door=>{
     const isLocked=acceptedOpening(opening)||opening.reviewStatus==='pending';
-    const width=Number(door.widthMm)||0,height=Number(door.heightMm)||0;
-    const size=width&&height?`${width} × ${height} мм${doorCount===2?' · створка':''}`:'';
+    const width=Number(door.widthMm)||0;
+    const size=width?`${doorCount===2?'Ширина створки':'Ширина двери'}: ${width} мм`:'';
     return `<div class="opening-door-row"><div class="opening-door-main"><div><strong>${door.glass?'Дверь со стеклом':'Дверь'} ${door.n}</strong><span>${door.status==='accepted'?'Принято':STATUS[door.status]?.label||'Не начато'}</span></div>
       ${size?`<span class="opening-door-size">${size}</span>`:''}
       ${permissions.canWork&&!isLocked?`<label class="field opening-status-field"><span>Статус</span><select data-door-work-status='${htmlEscape(JSON.stringify({openingId:opening.id,doorId:door.id,...openingContextIds(context)}))}'>${['not_started','materials_ready','in_progress','installed'].map(status=>`<option value="${status}" ${door.status===status?'selected':''}>${STATUS[status].label}</option>`).join('')}</select></label>`:''}
