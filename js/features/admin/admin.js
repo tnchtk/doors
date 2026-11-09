@@ -5,7 +5,7 @@ function adminEsc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&
 function pageAdmin(){
   const objects=activeObjects(state);
   const doorCount=allDoors(state).length;
-  const apartmentCount=objects.reduce((n,o)=>n+o.blocks.reduce((x,b)=>x+b.floors.reduce((y,f)=>y+f.apartments.length,0),0),0);
+  const openingCount=allOpenings(state).length;
   const activeProfiles=(adminProfilesCache||[]).filter(profile=>profile.is_active).length;
   return `
     <div class="section-title"><h2>Админ-панель</h2></div>
@@ -13,17 +13,18 @@ function pageAdmin(){
     <div class="kpi-grid">
       <div class="kpi accent"><div class="val">${objects.length}</div><div class="lbl">Активных объектов</div></div>
       <div class="kpi"><div class="val">${objects.reduce((n,o)=>n+o.blocks.length,0)}</div><div class="lbl">Активных блоков</div></div>
-      <div class="kpi"><div class="val">${doorCount}</div><div class="lbl">Дверей · ${apartmentCount} квартир</div></div>
+      <div class="kpi"><div class="val">${doorCount}</div><div class="lbl">Дверей · ${openingCount} проёмов</div></div>
       <div class="kpi ok"><div class="val" id="dbStatus">Проверка…</div><div class="lbl">${cloudEnabled?'Общая база данных':'Локальная база данных'}</div></div>
     </div>
-    <div class="panel"><div class="panel-head"><div><h3>Объекты и блоки</h3><span class="hint">Создавайте объект, затем добавляйте в него блоки</span></div><button class="btn primary sm" data-create-object>+ Новый объект</button></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Объект</th><th>Блоки</th><th>Квартиры</th><th>Двери</th><th>Статус</th><th></th></tr></thead><tbody>
+    <div class="panel"><div class="panel-head"><div><h3>Объекты и блоки</h3><span class="hint">Блоки добавляются в карточке объекта в разделе «Объекты»</span></div><button class="btn primary sm" data-create-object>+ Новый объект</button></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Объект</th><th>Блоки</th><th>Этажи</th><th>Проёмы</th><th>Двери</th><th>Статус</th><th></th></tr></thead><tbody>
       ${state.objects.map(o=>{
-        const apartments=o.blocks.reduce((n,b)=>n+b.floors.reduce((x,f)=>x+f.apartments.length,0),0);
-        const doors=o.blocks.reduce((n,b)=>n+b.floors.reduce((x,f)=>x+f.apartments.reduce((y,a)=>y+apartmentDoors(a).length,0),0),0);
+        const floors=o.blocks.reduce((n,b)=>n+(b.floors||[]).length,0);
+        const openings=(o.blocks||[]).reduce((n,b)=>n+(b.floors||[]).reduce((x,f)=>x+(f.apartments||[]).reduce((y,a)=>y+(a.openings||[]).length,0),0),0);
+        const doors=(o.blocks||[]).reduce((n,b)=>n+(b.floors||[]).reduce((x,f)=>x+(f.apartments||[]).reduce((y,a)=>y+apartmentDoors(a).length,0),0),0);
         const blockNames=o.blocks.length?`<div class="admin-block-list">${o.blocks.map(b=>`<span class="admin-block-item"><span>${adminEsc(b.name)}</span><button class="btn sm" data-admin-edit-block='${adminEsc(JSON.stringify({objId:o.id,blockId:b.id}))}'>Изменить</button></span>`).join('')}</div>`:'Пока нет блоков';
-        return `<tr><td>${adminEsc(o.name)}</td><td>${blockNames}</td><td>${apartments}</td><td>${doors}</td><td><span class="pill ${o.archivedAt?'neutral':'ok'}">${o.archivedAt?'В архиве':'Активен'}</span></td><td><div class="admin-actions"><button class="btn sm" data-admin-add-block="${adminEsc(o.id)}">+ Блок</button><button class="btn sm" data-admin-edit-object="${adminEsc(o.id)}">Изменить</button><button class="btn sm" data-object-archive="${adminEsc(o.id)}" data-archived="${o.archivedAt?'1':'0'}">${o.archivedAt?'Восстановить':'Архивировать'}</button><button class="btn sm danger" data-delete-object="${adminEsc(o.id)}">Удалить навсегда</button></div></td></tr>`;
-      }).join('')||'<tr><td colspan="6"><div class="empty">Объектов пока нет. Создайте первый объект.</div></td></tr>'}
+        return `<tr><td>${adminEsc(o.name)}</td><td>${blockNames}</td><td>${floors}</td><td>${openings}</td><td>${doors}</td><td><span class="pill ${o.archivedAt?'neutral':'ok'}">${o.archivedAt?'В архиве':'Активен'}</span></td><td><div class="admin-actions"><button class="btn sm" data-admin-edit-object="${adminEsc(o.id)}">Изменить</button><button class="btn sm" data-object-archive="${adminEsc(o.id)}" data-archived="${o.archivedAt?'1':'0'}">${o.archivedAt?'Восстановить':'Архивировать'}</button><button class="btn sm danger" data-delete-object="${adminEsc(o.id)}">Удалить навсегда</button></div></td></tr>`;
+      }).join('')||'<tr><td colspan="7"><div class="empty">Объектов пока нет. Создайте первый объект.</div></td></tr>'}
       </tbody></table></div>
     </div>
     <div class="panel"><div class="panel-head"><div><h3>Бригады</h3><span class="hint">Бригада назначается на этаж; бригадир увидит свои этажи</span></div><button class="btn primary sm" data-create-brigade>+ Новая бригада</button></div>
@@ -152,7 +153,6 @@ async function bindAdminEvents(container){
   const status=container.querySelector('#dbStatus');
   if(status) status.textContent=cloudEnabled?cloudStatus:await dbReady.then(db=>db?'Подключена':'LocalStorage');
   if(cloudEnabled)loadAdminProfiles(container);
-  container.querySelectorAll('[data-admin-add-block]').forEach(btn=>btn.addEventListener('click',()=>createNewBlock(btn.dataset.adminAddBlock)));
   container.querySelectorAll('[data-admin-edit-block]').forEach(btn=>btn.addEventListener('click',()=>editExistingBlock(JSON.parse(btn.dataset.adminEditBlock))));
   container.querySelectorAll('[data-admin-edit-object]').forEach(btn=>btn.addEventListener('click',()=>editExistingObject(btn.dataset.adminEditObject)));
   container.querySelectorAll('[data-admin-edit-brigade]').forEach(btn=>btn.addEventListener('click',()=>{

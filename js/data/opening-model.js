@@ -3,6 +3,10 @@ const OPENING_TYPE_LABELS={
   kitchen:'Кухонный проём',
   toilet:'Проём туалета',
   custom:'Нестандартный проём',
+  single_glass:'Дверь со стеклом',
+  single_solid:'Глухая дверь',
+  double_glass:'Двойная дверь со стеклом',
+  double_solid:'Двойная глухая дверь',
   legacy:'Старая запись двери',
 };
 
@@ -24,8 +28,9 @@ function makeDoorLeaf(n,glass=false,existing={}){
 }
 
 function makeOpening(type,n=1){
-  const doorCount=type==='large'?2:1;
-  const glass=type==='large'||type==='kitchen';
+  const doubleDoor=['large','double_glass','double_solid'].includes(type);
+  const doorCount=doubleDoor?2:1;
+  const glass=['large','kitchen','single_glass','double_glass'].includes(type);
   return {
     id:openingId(),
     type:OPENING_TYPE_LABELS[type]?type:'custom',
@@ -38,14 +43,6 @@ function makeOpening(type,n=1){
     submittedAt:null,
     acceptedAt:null,
   };
-}
-
-function apartmentFromTemplate(num,largeCount,toiletCount){
-  const openings=[];
-  for(let i=1;i<=largeCount;i++)openings.push(makeOpening('large',i));
-  openings.push(makeOpening('kitchen',1));
-  for(let i=1;i<=toiletCount;i++)openings.push(makeOpening('toilet',i));
-  return {id:openingId('apt'),num,openings};
 }
 
 function normalizeOpeningState(value){
@@ -116,7 +113,7 @@ function openingMaterialNeeds(opening){
     porog:opening.type==='toilet'?1:0,
     krepezh:count,
     pena:count,
-    shpingalet:opening.type==='large'?1:0,
+    shpingalet:['large','double_glass','double_solid'].includes(opening.type)?1:0,
   };
   return needs;
 }

@@ -13,9 +13,10 @@ function pageObjects(){
   if(!route.floorId) return floorList(obj, block);
   const floor=findFloor(obj.id, block.id, route.floorId);
   if(!floor) return floorList(obj, block);
-  if(!route.aptId) return apartmentList(obj, block, floor);
+  if(!route.aptId) return floorOpeningsList(obj, block, floor);
   const apt=findApt(obj.id, block.id, floor.id, route.aptId);
-  if(!apt) return apartmentList(obj, block, floor);
+  if(!apt) return floorOpeningsList(obj, block, floor);
+  if(apt.isFloorContainer) return floorOpeningsList(obj,block,floor);
   return doorList(obj, block, floor, apt);
 }
 
@@ -28,7 +29,7 @@ function crumb(segments){
 
 function objectsList(){
   return `
-    <div class="panel-head"><div><h3>Объекты</h3><div class="hint">Откройте объект, чтобы вести установку по блокам и квартирам</div></div></div>
+    <div class="panel-head"><div><h3>Объекты</h3><div class="hint">Откройте объект, чтобы вести установку по блокам, этажам и дверям</div></div></div>
     <div class="card-grid">
       ${activeObjects(state).map(o=>{
         const od=objDoors(state,o.id); const oc=countByStatus(od); const ot=totalCount(oc); const done=doneCount(oc);
@@ -49,9 +50,9 @@ function objectsList(){
 function blockList(obj){
   return `
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name}])}
-    <div class="panel-head"><h3>Блоки</h3></div>
+    <div class="panel-head"><h3>Блоки · ${htmlEscape(obj.name)}</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-block="${htmlEscape(obj.id)}">+ Добавить блок</button>`:''}</div>
     <div class="card-grid">
-      ${obj.blocks.map(b=>{
+      ${(obj.blocks||[]).map(b=>{
         const doors=[]; b.floors.forEach(f=>f.apartments.forEach(a=>apartmentDoors(a).forEach(item=>doors.push(item.door))));
         const c=countByStatus(doors.map(d=>({door:d}))); const ot=totalCount(c); const done=doneCount(c);
         const pct= ot?Math.round(done/ot*100):0;
@@ -63,7 +64,7 @@ function blockList(obj){
             <span class="t-pct">${pct}%</span>
           </div>
         </div>`;
-      }).join('')}
+      }).join('')||'<div class="empty">Блоков пока нет. Добавьте первый блок для этого объекта.</div>'}
     </div>
   `;
 }
@@ -87,31 +88,6 @@ function floorList(obj, block){
             <span class="t-pct">${pct}%</span>
           </div>
         </div>${canManageWorkspace()?`<button type="button" class="btn sm floor-copy-button" aria-label="Скопировать этаж ${htmlEscape(f.num)}" data-copy-floor='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:f.id}))}'>Копировать этаж</button>`:''}</div>`;
-      }).join('')}
-    </div>
-  `;
-}
-
-function apartmentList(obj, block, floor){
-  const brigade=state.brigades.find(b=>b.id===floor.brigadeId);
-  return `
-    ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name, click:{page:'objects', objId:obj.id}}, {label:block.name, click:{page:'objects', objId:obj.id, blockId:block.id}}, {label:floor.num+' этаж'}])}
-    <div class="panel" style="margin-bottom:16px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div style="font-size:13px;color:var(--text-dim)">Бригада на этаже: <strong style="color:var(--text)">${brigade?brigade.name:'—'}</strong></div>
-      ${canManageWorkspace()?`<button class="btn primary sm" data-create-apartment='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id})}'>+ Новая квартира</button>`:''}
-    </div>
-    <div class="card-grid">
-      ${floor.apartments.map(a=>{
-        const c=countByStatus(apartmentDoors(a).map(item=>({door:item.door}))); const ot=totalCount(c); const done=doneCount(c);
-        const pct= ot?Math.round(done/ot*100):0;
-        return `<div class="tile" data-open-apt="${a.id}">
-          <div class="t-name">кв. ${a.num}</div>
-          <div class="t-meta">${ot} дверей ${c.problem?`· <span style="color:var(--bad)">${c.problem} проблем</span>`:''}</div>
-          <div class="t-progress">
-            <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
-            <span class="t-pct">${pct}%</span>
-          </div>
-        </div>`;
       }).join('')}
     </div>
   `;

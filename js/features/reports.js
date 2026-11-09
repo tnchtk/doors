@@ -122,7 +122,7 @@ function avrPrintDocument(object,block,rows,materialRows,unitPrice){
   const quantity=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(value);
   const bodyRows=rows.map((row,index)=>{
     const amount=unitPrice===null?'':money(row.count*unitPrice);
-    const typeLabel={large:'Монтаж дверей со стеклом · большие проёмы',kitchen:'Монтаж кухонных дверей со стеклом',toilet:'Монтаж туалетных дверей с коробкой и порогом',custom:'Монтаж нестандартных дверей',legacy:'Монтаж дверей · старая запись'}[row.type]||'Монтаж дверей';
+    const typeLabel={large:'Монтаж дверей со стеклом · большие проёмы',kitchen:'Монтаж кухонных дверей со стеклом',toilet:'Монтаж туалетных дверей с коробкой и порогом',custom:'Монтаж нестандартных дверей',single_glass:'Монтаж дверей со стеклом',single_solid:'Монтаж глухих дверей',double_glass:'Монтаж двойных дверей со стеклом',double_solid:'Монтаж двойных глухих дверей',legacy:'Монтаж дверей · старая запись'}[row.type]||'Монтаж дверей';
     const scope=block?`${typeLabel}`:`${htmlEscape(row.block.name)} · ${typeLabel}`;
     return `<tr><td>${index+1}</td><td>${scope}</td><td>шт.</td><td class="num">${row.count}</td><td class="num">${unitPrice===null?'':money(unitPrice)}</td><td class="num">${amount}</td></tr>`;
   }).join('');

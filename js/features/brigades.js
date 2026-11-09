@@ -26,7 +26,7 @@ function brigadeTransactionDate(entry){
 }
 function openingFinanceLabel(entry){
   const found=allFinanceOpenings(state).find(item=>item.opening.id===(entry.opening_id||entry.openingId));
-  return found?`${found.obj.name} · ${found.block.name} · ${found.floor.num} этаж · кв. ${found.apt.num}`:'';
+  return found?`${found.obj.name} · ${found.block.name} · ${found.floor.num} этаж${found.apt.isFloorContainer?'':` · кв. ${found.apt.num}`}`:'';
 }
 function allFinanceOpenings(source){
   const rows=[];

@@ -1,24 +1,109 @@
-function apartmentList(obj,block,floor){
+function floorOpeningsList(obj,block,floor){
   const brigade=state.brigades.find(item=>item.id===floor.brigadeId);
+  const openings=(floor.apartments||[]).flatMap(apt=>(apt.openings||[]).map(opening=>({apt,opening})));
+  const doors=openings.flatMap(item=>item.opening.doors||[]);
+  const acceptedCount=openings.filter(item=>acceptedOpening(item.opening)).length;
+  const materialRows=materialsTable(openings.map(item=>item.opening)).filter(item=>item.needed>0);
+  const foreman=isForemanWorkspaceUser();
+  const canWork=foreman||!cloudEnabled;
+  const manager=canManageWorkspace()&&!foreman;
+  const ids={objId:obj.id,blockId:block.id,floorId:floor.id};
   return `
     ${crumb([{label:'Объекты',click:{page:'objects'}},{label:obj.name,click:{page:'objects',objId:obj.id}},{label:block.name,click:{page:'objects',objId:obj.id,blockId:block.id}},{label:`${floor.num} этаж`}])}
-    <div class="panel opening-floor-note"><span>Бригада на этаже</span><strong>${htmlEscape(brigade?.name||'Не назначена')}</strong></div>
-    <div class="panel-head opening-section-head"><div><h3>Квартиры</h3><span class="hint">Состав проёмов и комплектующие считаются автоматически</span></div>${canManageWorkspace()?`<button class="btn primary sm" data-create-apartment='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id}))}'>Добавить квартиру</button>`:''}</div>
-    <div class="card-grid">
-      ${(floor.apartments||[]).map(apt=>{
-        const doors=apartmentDoors(apt).map(item=>item.door);
-        const c=countByStatus(doors.map(door=>({door})));
-        const accepted=(apt.openings||[]).filter(acceptedOpening).length;
-        const pct=doors.length?Math.round(c.accepted/doors.length*100):0;
-        const flags=(apt.openings||[]).filter(opening=>['issue_reported','pending','changes_requested'].includes(opening.reviewStatus)).length;
-        return `<div class="apartment-tile-wrap"><article class="tile apartment-opening-tile" data-open-apt="${htmlEscape(apt.id)}" tabindex="0" role="button" aria-label="Открыть квартиру ${htmlEscape(apt.num)}">
-          <div class="t-name">Квартира ${htmlEscape(apt.num)}</div>
-          <div class="t-meta">${(apt.openings||[]).length} проёмов · ${doors.length} дверей · принято ${accepted}</div>
-          <div class="t-progress"><div class="bar"><span style="width:${pct}%"></span></div><span class="t-pct">${pct}%</span></div>
-          ${flags?`<span class="pill ${apt.openings.some(opening=>opening.reviewStatus==='changes_requested')?'warn':'info'}">${flags} требуют внимания</span>`:''}
-        </article>${canManageWorkspace()?`<button type="button" class="btn sm apartment-copy-button" aria-label="Скопировать состав квартиры ${htmlEscape(apt.num)}" data-copy-apartment='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id}))}'>Копировать квартиру</button>`:''}</div>`;
-      }).join('')||'<div class="empty">На этаже пока нет квартир</div>'}
-    </div>`;
+    <section class="panel floor-door-summary">
+      <div><span class="dashboard-eyebrow">Ведомость этажа</span><h3>${openings.length} ${openings.length===1?'проём':'проёмов'} · ${doors.length} ${doors.length===1?'дверь':'дверей'}</h3><p>Бригада: <strong>${htmlEscape(brigade?.name||'Не назначена')}</strong> · Принято: ${acceptedCount}</p></div>
+      ${canManageWorkspace()?`<button type="button" class="btn primary" data-add-floor-doors='${htmlEscape(JSON.stringify(ids))}'>+ Добавить двери</button>`:''}
+    </section>
+    ${manager?'<div class="opening-role-hint">Состав двери задаётся здесь. Двойная дверь считается одним проёмом с двумя полотнами.</div>':''}
+    ${foreman?'<div class="opening-role-hint">Отмечайте установку каждого полотна, добавляйте фото и отправляйте готовые проёмы менеджеру.</div>':''}
+    <div class="opening-list floor-opening-list">
+      ${openings.map(({apt,opening})=>renderOpeningCard({obj,block,floor,apt,floorLevel:true},opening,{canWork,manager,foreman})).join('')||'<div class="empty">На этаже пока нет дверей. Менеджер может добавить состав этажа.</div>'}
+    </div>
+    <section class="panel opening-material-panel"><div class="panel-head"><div><h3>Комплектующие на этаже</h3><span class="hint">Потребность по всему заданному составу</span></div></div><div class="opening-material-grid">${materialRows.map(item=>`<div><span>${htmlEscape(item.name)}</span><strong>${openingQty(item.needed)} ${htmlEscape(item.unit)}</strong></div>`).join('')||'<span class="hint">Добавьте двери, чтобы рассчитать комплектующие.</span>'}</div></section>
+  `;
+}
+
+const FLOOR_DOOR_TYPES=[
+  {type:'single_glass',label:'Одинарная дверь со стеклом',double:false,glass:true},
+  {type:'single_solid',label:'Одинарная глухая дверь',double:false,glass:false},
+  {type:'double_glass',label:'Двойная дверь со стеклом',double:true,glass:true},
+  {type:'double_solid',label:'Двойная глухая дверь',double:true,glass:false},
+];
+
+function openFloorDoorBatchModal(ids){
+  if(!canManageWorkspace()||isForemanWorkspaceUser()){toast('Добавлять двери может администратор или менеджер');return;}
+  const obj=state.objects.find(item=>item.id===ids.objId);
+  const block=obj?.blocks.find(item=>item.id===ids.blockId);
+  const floor=block?.floors.find(item=>item.id===ids.floorId);
+  if(!obj||!block||!floor)return;
+  const overlay=document.createElement('div');
+  overlay.className='overlay';
+  overlay.innerHTML=`<div class="modal floor-door-modal" role="dialog" aria-modal="true" aria-labelledby="floorDoorTitle">
+    <h3 id="floorDoorTitle">Добавить двери · ${htmlEscape(floor.num)} этаж</h3>
+    <p class="hint">Для каждой позиции укажите количество и размер в миллиметрах. Для двойной двери ширина указывается на одну створку.</p>
+    <div class="opening-template-note">Двойная дверь — один проём из двух полотен. При принятии к тарифу за проём добавится 500 сомов.</div>
+    <form>
+      <div class="floor-door-form-list">${FLOOR_DOOR_TYPES.map(item=>`<div class="floor-door-form-row">
+        <div class="floor-door-kind"><strong>${item.label}</strong><span>${item.double?'1 проём · 2 полотна':'1 проём · 1 полотно'}</span></div>
+        <label class="field"><span>Количество</span><input type="number" name="count_${item.type}" value="0" min="0" max="500" step="1" inputmode="numeric" aria-label="Количество · ${item.label}"></label>
+        <label class="field"><span>Ширина ${item.double?'створки':'двери'}, мм</span><input type="number" name="width_${item.type}" min="1" max="5000" step="1" inputmode="numeric" placeholder="Например, 700" aria-label="Ширина ${item.double?'створки':'двери'}, миллиметры · ${item.label}"></label>
+        <label class="field"><span>Высота, мм</span><input type="number" name="height_${item.type}" min="1" max="5000" step="1" inputmode="numeric" placeholder="Например, 2000" aria-label="Высота, миллиметры · ${item.label}"></label>
+      </div>`).join('')}</div>
+      <div class="modal-actions"><button type="button" class="btn ghost" data-cancel>Отмена</button><button type="submit" class="btn primary">Добавить двери</button></div>
+    </form>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('[data-cancel]').addEventListener('click',close);
+  overlay.addEventListener('click',event=>{if(event.target===overlay)close();});
+  overlay.querySelector('form').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=event.currentTarget;
+    const submit=form.querySelector('[type="submit"]');
+    const rows=[];
+    for(const item of FLOOR_DOOR_TYPES){
+      const count=Number(form.elements[`count_${item.type}`].value);
+      const widthMm=Number(form.elements[`width_${item.type}`].value);
+      const heightMm=Number(form.elements[`height_${item.type}`].value);
+      if(!Number.isInteger(count)||count<0||count>500){toast(`Проверьте количество: ${item.label.toLocaleLowerCase()}`);return;}
+      if(!count)continue;
+      if(!Number.isInteger(widthMm)||widthMm<1||widthMm>5000||!Number.isInteger(heightMm)||heightMm<1||heightMm>5000){toast(`Укажите ширину и высоту в миллиметрах: ${item.label.toLocaleLowerCase()}`);return;}
+      rows.push({...item,count,widthMm,heightMm});
+    }
+    if(!rows.length){toast('Укажите количество хотя бы в одной строке');return;}
+    const previousState=JSON.parse(JSON.stringify(state));
+    floor.apartments=Array.isArray(floor.apartments)?floor.apartments:[];
+    let floorEntry=floor.apartments.find(item=>item.isFloorContainer);
+    if(!floorEntry){
+      floorEntry={id:newRecordId('apt'),num:`Этаж ${floor.num}`,isFloorContainer:true,openings:[]};
+      floor.apartments.push(floorEntry);
+    }
+    floorEntry.openings=Array.isArray(floorEntry.openings)?floorEntry.openings:[];
+    const floorOpenings=floor.apartments.flatMap(apartment=>apartment.openings||[]);
+    for(const row of rows){
+      let number=floorOpenings.filter(opening=>opening.type===row.type).reduce((max,opening)=>Math.max(max,Number(opening.n)||0),0);
+      for(let index=0;index<row.count;index++){
+        number++;
+        const opening=makeOpening(row.type,number);
+        opening.title=`${row.label} ${number} · ${row.widthMm} × ${row.heightMm} мм${row.double?' / створка':''}`;
+        opening.doors=opening.doors.map(door=>({...door,widthMm:row.widthMm,heightMm:row.heightMm}));
+        floorEntry.openings.push(opening);
+      }
+    }
+    submit.disabled=true;
+    submit.textContent='Сохраняем…';
+    try{
+      await saveManagerOpeningState();
+      close();
+      toast(`Добавлено проёмов: ${rows.reduce((sum,row)=>sum+row.count,0)}`);
+      render();
+    }catch(error){
+      state=previousState;
+      close();
+      render();
+      toast(error.message||'Не удалось сохранить двери');
+    }
+  });
 }
 
 function doorList(obj,block,floor,apt){
@@ -28,21 +113,21 @@ function doorList(obj,block,floor,apt){
   const manager=canManageWorkspace()&&!foreman;
   const allDoorsForApt=apartmentDoors(apt).map(item=>item.door);
   const accepted=(apt.openings||[]).filter(acceptedOpening).length;
-  const configureTemplate=canManageWorkspace()&&openingTemplateEditable(apt);
   const materialRows=materialsTable(apt.openings||[]).filter(item=>item.needed>0);
   const ids={objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id};
+  const locationLabel=apt.isFloorContainer?`${floor.num} этаж`:`Квартира ${apt.num}`;
   return `
-    ${crumb([{label:'Объекты',click:{page:'objects'}},{label:obj.name,click:{page:'objects',objId:obj.id}},{label:block.name,click:{page:'objects',objId:obj.id,blockId:block.id}},{label:`${floor.num} этаж`,click:{page:'objects',objId:obj.id,blockId:block.id,floorId:floor.id}},{label:`Квартира ${apt.num}`}])}
+    ${crumb([{label:'Объекты',click:{page:'objects'}},{label:obj.name,click:{page:'objects',objId:obj.id}},{label:block.name,click:{page:'objects',objId:obj.id,blockId:block.id}},{label:`${floor.num} этаж`,click:{page:'objects',objId:obj.id,blockId:block.id,floorId:floor.id}},{label:locationLabel}])}
     <section class="panel apartment-spec-summary">
-      <div><span class="dashboard-eyebrow">Состав квартиры</span><h3>${(apt.openings||[]).length} проёмов · ${allDoorsForApt.length} дверей</h3><p>${accepted} проёмов приняты менеджером</p></div>
-      ${canManageWorkspace()?`<div class="opening-heading-actions">${configureTemplate?`<button type="button" class="btn sm" data-configure-template='${htmlEscape(JSON.stringify(ids))}'>${apt.openings.every(opening=>opening.type==='legacy')?'Указать типы проёмов':'Изменить состав'}</button>`:''}<button type="button" class="btn sm" data-add-opening='${htmlEscape(JSON.stringify(ids))}'>Добавить проём</button><button type="button" class="btn sm" data-add-standalone-door='${htmlEscape(JSON.stringify(ids))}'>Добавить дверь</button></div>`:''}
+      <div><span class="dashboard-eyebrow">Ведомость этажа</span><h3>${(apt.openings||[]).length} проёмов · ${allDoorsForApt.length} дверей</h3><p>${accepted} проёмов приняты менеджером</p></div>
+      ${canManageWorkspace()?`<div class="opening-heading-actions"><button type="button" class="btn sm" data-add-opening='${htmlEscape(JSON.stringify(ids))}'>Добавить проём</button><button type="button" class="btn sm" data-add-standalone-door='${htmlEscape(JSON.stringify(ids))}'>Добавить дверь</button></div>`:''}
     </section>
     ${manager?`<div class="opening-role-hint">Проверяйте фото каждого проёма. После принятия весь комплект попадёт в АВР.</div>`:''}
     ${foreman?`<div class="opening-role-hint">Обновляйте двери на назначенном этаже, добавляйте фото и отправляйте готовый проём менеджеру.</div>`:''}
     <div class="opening-list">
       ${(apt.openings||[]).map(opening=>renderOpeningCard(context,opening,{canWork,manager,foreman})).join('')||'<div class="empty">Проёмы не заданы</div>'}
     </div>
-    <section class="panel opening-material-panel"><div class="panel-head"><div><h3>Комплектующие для квартиры</h3><span class="hint">Потребность по заданным проёмам</span></div></div><div class="opening-material-grid">${materialRows.map(item=>`<div><span>${htmlEscape(item.name)}</span><strong>${openingQty(item.needed)} ${htmlEscape(item.unit)}</strong></div>`).join('')}</div></section>
+    <section class="panel opening-material-panel"><div class="panel-head"><div><h3>Комплектующие на этаже</h3><span class="hint">Потребность по заданным проёмам</span></div></div><div class="opening-material-grid">${materialRows.map(item=>`<div><span>${htmlEscape(item.name)}</span><strong>${openingQty(item.needed)} ${htmlEscape(item.unit)}</strong></div>`).join('')}</div></section>
   `;
 }
 
@@ -53,10 +138,13 @@ function renderOpeningCard(context,opening,permissions){
   const canEditStructure=permissions.manager&&!openingStructureLocked(opening);
   const cards=(opening.doors||[]).map(door=>{
     const isLocked=acceptedOpening(opening)||opening.reviewStatus==='pending';
+    const width=Number(door.widthMm)||0,height=Number(door.heightMm)||0;
+    const size=width&&height?`${width} × ${height} мм${doorCount===2?' · створка':''}`:'';
     return `<div class="opening-door-row"><div class="opening-door-main"><div><strong>${door.glass?'Дверь со стеклом':'Дверь'} ${door.n}</strong><span>${door.status==='accepted'?'Принято':STATUS[door.status]?.label||'Не начато'}</span></div>
+      ${size?`<span class="opening-door-size">${size}</span>`:''}
       ${permissions.canWork&&!isLocked?`<label class="field opening-status-field"><span>Статус</span><select data-door-work-status='${htmlEscape(JSON.stringify({openingId:opening.id,doorId:door.id,...openingContextIds(context)}))}'>${['not_started','materials_ready','in_progress','installed'].map(status=>`<option value="${status}" ${door.status===status?'selected':''}>${STATUS[status].label}</option>`).join('')}</select></label>`:''}
       ${permissions.canWork&&!isLocked?`<label class="btn sm opening-photo-button">Добавить фото<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" data-opening-photo='${htmlEscape(JSON.stringify({openingId:opening.id,doorId:door.id,...openingContextIds(context)}))}'></label>`:''}
-      ${canEditStructure?`<button type="button" class="btn sm danger opening-delete-door" aria-label="Удалить дверь ${htmlEscape(door.n)}" data-delete-door='${htmlEscape(JSON.stringify({openingId:opening.id,doorId:door.id,...openingContextIds(context)}))}'>Удалить дверь</button>`:''}
+      ${canEditStructure&&!context.floorLevel?`<button type="button" class="btn sm danger opening-delete-door" aria-label="Удалить дверь ${htmlEscape(door.n)}" data-delete-door='${htmlEscape(JSON.stringify({openingId:opening.id,doorId:door.id,...openingContextIds(context)}))}'>Удалить дверь</button>`:''}
       </div>
       ${(door.photos||[]).length?`<div class="opening-photos">${door.photos.map((photo,index)=>{
         const path=typeof photo==='string'?photo:photo.path||photo.localDataUrl||'';
@@ -71,7 +159,7 @@ function renderOpeningCard(context,opening,permissions){
   }).filter(Boolean);
   const statusClass={issue_reported:'info',pending:'info',accepted:'ok',changes_requested:'warn',not_submitted:'neutral'}[opening.reviewStatus]||'neutral';
   return `<article class="panel opening-card" data-opening-card="${htmlEscape(opening.id)}">
-    <header class="opening-card-head"><div><span class="opening-kicker">${htmlEscape(OPENING_TYPE_LABELS[opening.type]||'Проём')}</span><h3>${htmlEscape(title)}</h3><p>${doorCount} ${doorCount===1?'дверь':'двери'} · ${opening.doors?.some(door=>door.glass)?'со стеклом':'без стекла'}</p></div><div class="opening-card-tools"><span class="pill ${statusClass}">${review.label}</span>${canEditStructure?`<button type="button" class="btn sm" data-add-door-to-opening='${htmlEscape(JSON.stringify({openingId:opening.id,...openingContextIds(context)}))}'>Добавить дверь</button><button type="button" class="btn sm danger" data-delete-opening='${htmlEscape(JSON.stringify({openingId:opening.id,...openingContextIds(context)}))}'>Удалить проём</button>`:''}</div></header>
+    <header class="opening-card-head"><div><span class="opening-kicker">${htmlEscape(OPENING_TYPE_LABELS[opening.type]||'Проём')}</span><h3>${htmlEscape(title)}</h3><p>${doorCount} ${doorCount===1?'дверь':'двери'} · ${opening.doors?.some(door=>door.glass)?'со стеклом':'без стекла'}</p></div><div class="opening-card-tools"><span class="pill ${statusClass}">${review.label}</span>${canEditStructure?`${context.floorLevel?'':`<button type="button" class="btn sm" data-add-door-to-opening='${htmlEscape(JSON.stringify({openingId:opening.id,...openingContextIds(context)}))}'>Добавить дверь</button>`}<button type="button" class="btn sm danger" data-delete-opening='${htmlEscape(JSON.stringify({openingId:opening.id,...openingContextIds(context)}))}'>Удалить проём</button>`:''}</div></header>
     <div class="opening-components"><span>Комплект</span><p>${componentRows.map(htmlEscape).join(' · ')||'Без шаблонных комплектующих'}</p></div>
     ${opening.managerNote?`<div class="opening-feedback"><strong>Замечание менеджера</strong><p>${htmlEscape(opening.managerNote)}</p></div>`:''}
     ${opening.foremanNote?`<div class="opening-foreman-note"><strong>Комментарий бригадира</strong><p>${htmlEscape(opening.foremanNote)}</p></div>`:''}
@@ -91,47 +179,6 @@ function findOpeningContext(ids){
   return obj&&block&&floor&&apt&&opening?{obj,block,floor,apt,opening}:null;
 }
 function isForemanWorkspaceUser(){return cloudEnabled&&cloudProfile?.role==='foreman';}
-function openingTemplateEditable(apartment){
-  const openings=apartment.openings||[];
-  if(openings.length&&openings.every(opening=>opening.type==='legacy'))return true;
-  return openings.length>0&&openings.every(opening=>opening.reviewStatus==='not_submitted'&&opening.doors.every(door=>door.status==='not_started'&&!(door.photos||[]).length));
-}
-
-function openCopyApartmentModal(ids){
-  if(!canManageWorkspace()||isForemanWorkspaceUser()){toast('Копировать квартиры может администратор или менеджер');return;}
-  const obj=state.objects.find(item=>item.id===ids.objId),block=obj?.blocks.find(item=>item.id===ids.blockId),floor=block?.floors.find(item=>item.id===ids.floorId),source=floor?.apartments.find(item=>item.id===ids.aptId);
-  if(!obj||!block||!floor||!source)return;
-  const numbers=floor.apartments.map(item=>Number(String(item.num).trim())).filter(value=>Number.isInteger(value)&&value>0);
-  const suggestedNumber=String(Math.max(0,...numbers)+1);
-  openDataEntryModal(`Копировать квартиру ${source.num}`,[
-    {id:'num',label:'Номер новой квартиры',value:suggestedNumber,required:true},
-  ],async values=>{
-    const num=String(values.num||'').trim();
-    if(!num){toast('Введите номер новой квартиры');return false;}
-    if(floor.apartments.some(item=>String(item.num).trim().toLocaleLowerCase()===num.toLocaleLowerCase())){toast('Такая квартира на этаже уже есть');return false;}
-    const duplicate={
-      id:openingId('apt'),
-      num,
-      openings:(source.openings||[]).map((opening,index)=>({
-        id:openingId(),
-        type:OPENING_TYPE_LABELS[opening.type]?opening.type:'custom',
-        n:Number(opening.n)||index+1,
-        title:opening.title||`${OPENING_TYPE_LABELS[opening.type]||OPENING_TYPE_LABELS.custom} ${Number(opening.n)||index+1}`,
-        doors:(opening.doors||[]).map((door,doorIndex)=>makeDoorLeaf(doorIndex+1,Boolean(door.glass))),
-        reviewStatus:'not_submitted',
-        foremanNote:'',
-        managerNote:'',
-        submittedAt:null,
-        acceptedAt:null,
-      })),
-    };
-    floor.apartments.push(duplicate);
-    try{await saveManagerOpeningState();}
-    catch(error){floor.apartments=floor.apartments.filter(item=>item.id!==duplicate.id);render();throw error;}
-    render();toast(`Квартира ${num} скопирована. Статусы, фото и замечания очищены.`);return true;
-  });
-}
-
 const bindPageEventsBeforeOpenings=bindPageEvents;
 bindPageEvents=function(){
   bindPageEventsBeforeOpenings();
@@ -140,14 +187,10 @@ bindPageEvents=function(){
 
 function bindOpeningEvents(container){
   if(!container)return;
+  container.querySelectorAll('[data-add-floor-doors]').forEach(element=>element.addEventListener('click',()=>openFloorDoorBatchModal(JSON.parse(element.dataset.addFloorDoors))));
   container.querySelectorAll('[data-open-apt]').forEach(element=>{
     element.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();goto('objects',{objId:route.objId,blockId:route.blockId,floorId:route.floorId,aptId:element.dataset.openApt});}});
   });
-  container.querySelectorAll('[data-copy-apartment]').forEach(element=>element.addEventListener('click',event=>{
-    event.stopPropagation();
-    openCopyApartmentModal(JSON.parse(element.dataset.copyApartment));
-  }));
-  container.querySelector('[data-configure-template]')?.addEventListener('click',event=>openApartmentTemplate(JSON.parse(event.currentTarget.dataset.configureTemplate)));
   container.querySelectorAll('[data-add-standalone-door]').forEach(element=>element.addEventListener('click',()=>openAddDoorModal(JSON.parse(element.dataset.addStandaloneDoor))));
   container.querySelectorAll('[data-add-door-to-opening]').forEach(element=>element.addEventListener('click',()=>{
     const ids=JSON.parse(element.dataset.addDoorToOpening);openAddDoorModal(ids,ids.openingId);
@@ -292,17 +335,17 @@ function resetOpeningReviewAfterStructureChange(opening){
 
 async function persistApartmentStructureChange(previousState){
   try{await saveManagerOpeningState();return true;}
-  catch(error){state=previousState;render();toast(error.message||'Не удалось сохранить состав квартиры');return false;}
+  catch(error){state=previousState;render();toast(error.message||'Не удалось сохранить состав проёма');return false;}
 }
 
 function openAddDoorModal(ids,targetOpeningId=null){
-  if(!canManageWorkspace()||isForemanWorkspaceUser()){toast('Изменять состав квартиры может администратор или менеджер');return;}
+  if(!canManageWorkspace()||isForemanWorkspaceUser()){toast('Изменять состав может администратор или менеджер');return;}
   const context=findApartmentContext(ids);if(!context)return;
   const opening=targetOpeningId?(context.apt.openings||[]).find(item=>item.id===targetOpeningId):null;
   if(targetOpeningId&&!opening)return;
   if(opening){const reason=openingStructureLockReason(opening);if(reason){toast(reason);return;}}
   const defaultGlass=opening?opening.type==='large'||opening.type==='kitchen':false;
-  const title=opening?`Добавить дверь · ${opening.title||'проём'}`:'Добавить дверь в квартиру';
+  const title=opening?`Добавить дверь · ${opening.title||'проём'}`:'Добавить дверь на этаж';
   openDataEntryModal(title,[{id:'glass',label:'Исполнение двери',value:String(defaultGlass),options:[{value:'false',label:'Без стекла'},{value:'true',label:'Со стеклом'}]}],async values=>{
     const previousState=JSON.parse(JSON.stringify(state));
     if(opening){
@@ -317,7 +360,7 @@ function openAddDoorModal(ids,targetOpeningId=null){
       context.apt.openings=context.apt.openings||[];context.apt.openings.push(newOpening);
     }
     if(!await persistApartmentStructureChange(previousState))return false;
-    render();toast(opening?'Дверь добавлена в проём':'Дверь добавлена в квартиру');return true;
+    render();toast(opening?'Дверь добавлена в проём':'Дверь добавлена');return true;
   });
 }
 
@@ -337,58 +380,16 @@ async function deleteApartmentDoor(ids){
 }
 
 async function deleteApartmentOpening(ids){
-  if(!canManageWorkspace()||isForemanWorkspaceUser()){toast('Изменять состав квартиры может администратор или менеджер');return;}
+  if(!canManageWorkspace()||isForemanWorkspaceUser()){toast('Изменять состав может администратор или менеджер');return;}
   const context=findOpeningContext(ids);if(!context)return;
   const reason=openingStructureLockReason(context.opening);if(reason){toast(reason);return;}
   const doorCount=(context.opening.doors||[]).length;
-  if(!confirm(`Удалить проём «${context.opening.title||context.opening.type}» и ${doorCount} ${doorCount===1?'дверь':'двери'} из квартиры? Фото и отметки этого проёма будут убраны из карточки.`))return;
+  const place=context.apt.isFloorContainer?'с этажа':'из квартиры';
+  if(!confirm(`Удалить проём «${context.opening.title||context.opening.type}» и ${doorCount} ${doorCount===1?'дверь':'двери'} ${place}? Фото и отметки этого проёма будут убраны из карточки.`))return;
   const previousState=JSON.parse(JSON.stringify(state));
   context.apt.openings=context.apt.openings.filter(item=>item.id!==context.opening.id);
   if(!await persistApartmentStructureChange(previousState))return;
   render();toast('Проём удалён');
-}
-
-function createNewApartment(context){
-  openApartmentTemplate(context,null,true);
-}
-
-function openApartmentTemplate(ids,existingApartment=null,isNew=false){
-  const obj=state.objects.find(item=>item.id===ids.objId),block=obj?.blocks.find(item=>item.id===ids.blockId),floor=block?.floors.find(item=>item.id===ids.floorId);
-  const apt=existingApartment||floor?.apartments.find(item=>item.id===ids.aptId);if(!floor)return;
-  const overlay=document.createElement('div');overlay.className='overlay';
-  overlay.innerHTML=`<div class="modal apartment-template-modal" role="dialog" aria-modal="true"><h3>${isNew?'Новая квартира':'Типы проёмов'}</h3><p class="hint">Кухонный проём с одной дверью добавится автоматически. Для каждого туалета создаётся своя дверь с коробкой и порогом.</p><form><label class="field"><span>Номер квартиры</span><input name="num" required value="${htmlEscape(apt?.num||'')}"></label><div class="opening-template-fields"><label class="field"><span>Большие проёмы</span><select name="large"><option value="1">1</option><option value="2">2</option></select></label><label class="field"><span>Туалеты</span><select name="toilet"><option value="1">1</option><option value="2">2</option></select></label></div><p class="opening-template-note">Каждый большой проём: 2 двери со стеклом. На каждый проём: 2,5 добора, 5 наличников и 1 ручка. На дверь: 2 петли и 1 баллон монтажной пены.</p><div class="modal-actions"><button type="button" class="btn ghost" data-cancel>Отмена</button><button type="submit" class="btn primary">${isNew?'Создать квартиру':'Сохранить состав'}</button></div></form></div>`;
-  document.body.appendChild(overlay);
-  if(apt){
-    const large=Math.min(2,Math.max(1,apt.openings.filter(opening=>opening.type==='large').length||1));
-    const toilet=Math.min(2,Math.max(1,apt.openings.filter(opening=>opening.type==='toilet').length||1));
-    overlay.querySelector('[name="large"]').value=String(large);overlay.querySelector('[name="toilet"]').value=String(toilet);
-  }
-  const close=()=>overlay.remove();overlay.querySelector('[data-cancel]').addEventListener('click',close);overlay.addEventListener('click',event=>{if(event.target===overlay)close();});
-  overlay.querySelector('form').addEventListener('submit',async event=>{
-    event.preventDefault();const form=new FormData(event.currentTarget),num=String(form.get('num')||'').trim(),large=Number(form.get('large')),toilet=Number(form.get('toilet'));
-    if(!num||![1,2].includes(large)||![1,2].includes(toilet)){toast('Проверьте номер квартиры и количество проёмов');return;}
-    if(isNew&&floor.apartments.some(item=>String(item.num).trim()===num)){toast('Такая квартира на этаже уже есть');return;}
-    if(isNew){floor.apartments.push(apartmentFromTemplate(num,large,toilet));}
-    else{
-      const oldDoors=apartmentDoors(apt).map(item=>item.door);const generated=apartmentFromTemplate(num,large,toilet);const newDoors=generated.openings.flatMap(opening=>opening.doors);
-      for(let index=0;index<newDoors.length&&index<oldDoors.length;index++){
-        const created=newDoors[index],old=oldDoors[index];Object.assign(created,old,{id:old.id,n:created.n,glass:created.glass,photos:Array.isArray(old.photos)?old.photos:[]});
-      }
-      for(let index=newDoors.length;index<oldDoors.length;index++){
-        const extra=makeOpening('custom',index-newDoors.length+1),old=oldDoors[index];Object.assign(extra.doors[0],old,{id:old.id,glass:false,photos:Array.isArray(old.photos)?old.photos:[]});generated.openings.push(extra);
-      }
-      generated.openings.forEach(opening=>{
-        if(opening.doors.length&&opening.doors.every(door=>door.status==='accepted'))opening.reviewStatus='accepted';
-        const oldIssue=opening.doors.find(door=>door.problem||door.status==='problem');
-        if(oldIssue&&opening.reviewStatus!=='accepted'){opening.reviewStatus='changes_requested';opening.managerNote=oldIssue.problem||'Проверьте старое замечание по двери';}
-      });
-      apt.num=num;apt.openings=generated.openings;
-    }
-    await saveState();
-    if(cloudWriteBlocked){toast('Состав не сохранён. Обновите данные и попробуйте ещё раз.');return;}
-    close();toast(isNew?'Квартира создана с комплектами проёмов':'Состав квартиры обновлён');
-    if(isNew)goto('objects',{objId:obj.id,blockId:block.id,floorId:floor.id,aptId:floor.apartments.at(-1).id});else render();
-  });
 }
 
 function openOpeningReturnModal(context){
@@ -418,7 +419,7 @@ function pageProblems(){
   const rows=allOpenings(state).filter(({opening})=>['issue_reported','pending','changes_requested'].includes(opening.reviewStatus)||opening.issue?.status==='open');
   const title=isForemanWorkspaceUser()?'Замечания по проёмам':'Проверка проёмов';
   return `<div class="panel"><div class="panel-head"><div><h3>${title}</h3><span class="hint">${isForemanWorkspaceUser()?'Ответ менеджера или проверка готовых проёмов':'Сообщения бригадиров и проёмы на проверке'}</span></div><span class="pill info">${rows.filter(row=>['issue_reported','pending'].includes(row.opening.reviewStatus)).length} ожидают ответа</span></div>
-    <div class="review-queue">${rows.map(({opening,apt,floor,block,obj})=>`<article class="review-row"><div><strong>${htmlEscape(obj.name)} · ${htmlEscape(block.name)} · этаж ${htmlEscape(floor.num)} · кв. ${htmlEscape(apt.num)}</strong><span>${htmlEscape(opening.title||OPENING_TYPE_LABELS[opening.type])} · ${openingDoorCount(opening)} двери</span><p>${htmlEscape(opening.managerNote||opening.foremanNote||'Ожидает проверки по фото')}</p></div><span class="pill ${['issue_reported','pending'].includes(opening.reviewStatus)?'info':'warn'}">${OPENING_REVIEW_LABELS[opening.reviewStatus]?.label||'Замечание'}</span><button class="btn sm" data-open-opening-context='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id}))}'>Открыть</button></article>`).join('')||'<div class="empty">Нет проёмов на проверке и без замечаний</div>'}</div></div>`;
+    <div class="review-queue">${rows.map(({opening,apt,floor,block,obj})=>`<article class="review-row"><div><strong>${htmlEscape(obj.name)} · ${htmlEscape(block.name)} · этаж ${htmlEscape(floor.num)}${apt.isFloorContainer?'':` · кв. ${htmlEscape(apt.num)}`}</strong><span>${htmlEscape(opening.title||OPENING_TYPE_LABELS[opening.type])} · ${openingDoorCount(opening)} двери</span><p>${htmlEscape(opening.managerNote||opening.foremanNote||'Ожидает проверки по фото')}</p></div><span class="pill ${['issue_reported','pending'].includes(opening.reviewStatus)?'info':'warn'}">${OPENING_REVIEW_LABELS[opening.reviewStatus]?.label||'Замечание'}</span><button class="btn sm" data-open-opening-context='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id}))}'>Открыть</button></article>`).join('')||'<div class="empty">Нет проёмов на проверке и без замечаний</div>'}</div></div>`;
 }
 
 const problemNavItem=NAV_ITEMS.find(item=>item.id==='problems');

@@ -13,7 +13,7 @@ function pageProblems(){
       <div class="panel-head"><h3>Список проблемных дверей</h3><span class="hint">${problems.length} шт.</span></div>
       <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Объект</th><th>Блок</th><th>Этаж</th><th>Квартира</th><th>Дверь</th><th>Проблема</th><th>Бригада</th><th></th></tr></thead>
+        <thead><tr><th>Объект</th><th>Блок</th><th>Этаж</th><th>Место</th><th>Дверь</th><th>Проблема</th><th>Бригада</th><th></th></tr></thead>
         <tbody>
           ${problems.map(x=>{
             const brigade=state.brigades.find(b=>b.id===x.floor.brigadeId);
@@ -21,7 +21,7 @@ function pageProblems(){
               <td>${x.obj.name}</td>
               <td>${x.block.name}</td>
               <td>${x.floor.num}</td>
-              <td>${x.apt.num}</td>
+              <td>${x.apt.isFloorContainer?`Этаж ${x.floor.num}`:`Квартира ${x.apt.num}`}</td>
               <td>№${x.door.n}</td>
               <td><span class="pill bad">${x.door.problem}</span></td>
               <td>${brigade?brigade.name:'—'}</td>

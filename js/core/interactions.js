@@ -15,7 +15,6 @@ function bindPageEvents(){
   c.querySelectorAll('[data-object-archive]').forEach(button=>button.addEventListener('click',()=>toggleWorkspaceObjectArchive(button.dataset.objectArchive,button)));
   c.querySelectorAll('[data-managed-object-edit]').forEach(button=>button.addEventListener('click',()=>editExistingObject(button.dataset.managedObjectEdit)));
   c.querySelectorAll('[data-managed-block-edit]').forEach(button=>button.addEventListener('click',()=>editExistingBlock(JSON.parse(button.dataset.managedBlockEdit))));
-  c.querySelectorAll('[data-managed-add-block]').forEach(button=>button.addEventListener('click',()=>createNewBlock(button.dataset.managedAddBlock)));
   c.querySelectorAll('[data-create-block]').forEach(el=>el.addEventListener('click',()=>createNewBlock(el.dataset.createBlock)));
   c.querySelectorAll('[data-edit-block]').forEach(el=>el.addEventListener('click',event=>{
     event.stopPropagation();
@@ -30,7 +29,6 @@ function bindPageEvents(){
     event.stopPropagation();
     openFloorFinanceEditor(JSON.parse(el.dataset.floorRate));
   }));
-  c.querySelectorAll('[data-create-apartment]').forEach(el=>el.addEventListener('click',()=>createNewApartment(JSON.parse(el.dataset.createApartment))));
   c.querySelectorAll('[data-create-door]').forEach(el=>el.addEventListener('click',()=>createNewDoor(JSON.parse(el.dataset.createDoor))));
   c.querySelector('[data-create-brigade]')?.addEventListener('click',createNewBrigade);
 
@@ -231,33 +229,26 @@ function openCopyFloorModal(ctx){
   if(!obj||!block||!source)return;
   const nextFloorNumber=Math.max(0,...block.floors.map(item=>Number(item.num)||0))+1;
   const sourceApartments=source.apartments||[];
-  const canRenumberApartments=sourceApartments.length>0&&sourceApartments.every(item=>Number.isSafeInteger(Number(item.num))&&Number(item.num)>0);
-  const apartmentNumbers=block.floors.flatMap(item=>item.apartments||[]).map(item=>Number(item.num)).filter(value=>Number.isSafeInteger(value)&&value>0);
-  const firstApartmentNumber=Math.max(0,...apartmentNumbers)+1;
   const fields=[{id:'num',label:'Номер нового этажа',type:'number',value:nextFloorNumber,min:1,step:1,required:true}];
-  if(canRenumberApartments)fields.push({id:'firstApartmentNumber',label:'Номер первой квартиры (остальные по порядку)',type:'number',value:firstApartmentNumber,min:1,step:1,required:true});
   openDataEntryModal(`Копировать этаж ${source.num}`,fields,async values=>{
     const num=Number(values.num);
     if(!Number.isSafeInteger(num)||num<1){toast('Укажите корректный номер этажа');return false;}
     if(block.floors.some(item=>Number(item.num)===num)){toast('Такой этаж в блоке уже есть');return false;}
-    const firstAptNum=canRenumberApartments?Number(values.firstApartmentNumber):null;
-    if(canRenumberApartments&&(!Number.isSafeInteger(firstAptNum)||firstAptNum<1||firstAptNum+sourceApartments.length-1>Number.MAX_SAFE_INTEGER)){
-      toast('Укажите корректный первый номер квартиры');return false;
-    }
     const duplicate={
       id:newRecordId('f'),
       num,
       brigadeId:source.brigadeId||null,
       ratePerOpening:source.ratePerOpening??null,
-      apartments:sourceApartments.map((apartment,apartmentIndex)=>({
+      apartments:sourceApartments.map(apartment=>({
         id:newRecordId('apt'),
-        num:canRenumberApartments?String(firstAptNum+apartmentIndex):apartment.num,
+        num:apartment.isFloorContainer?`Этаж ${num}`:apartment.num,
+        isFloorContainer:Boolean(apartment.isFloorContainer),
         openings:(apartment.openings||[]).map((opening,openingIndex)=>({
           id:newRecordId('op'),
           type:OPENING_TYPE_LABELS[opening.type]?opening.type:'custom',
           n:Number(opening.n)||openingIndex+1,
           title:opening.title||`${OPENING_TYPE_LABELS[opening.type]||OPENING_TYPE_LABELS.custom} ${Number(opening.n)||openingIndex+1}`,
-          doors:(opening.doors||[]).map((door,doorIndex)=>makeDoorLeaf(doorIndex+1,Boolean(door.glass))),
+          doors:(opening.doors||[]).map((door,doorIndex)=>makeDoorLeaf(doorIndex+1,Boolean(door.glass),{widthMm:door.widthMm,heightMm:door.heightMm})),
           reviewStatus:'not_submitted',
           foremanNote:'',
           managerNote:'',
@@ -277,20 +268,6 @@ function openCopyFloorModal(ctx){
     goto('objects',{objId:obj.id,blockId:block.id,floorId:duplicate.id});
     toast(`Этаж ${num} скопирован. Состав, бригада и тариф перенесены; статусы, фото и история выплат — нет.`);
     return true;
-  });
-}
-
-function createNewApartment(ctx){
-  const obj=state.objects.find(o=>o.id===ctx.objId),block=obj?.blocks.find(b=>b.id===ctx.blockId),floor=block?.floors.find(f=>f.id===ctx.floorId);if(!floor)return;
-  openDataEntryModal('Новая квартира',[
-    {id:'num',label:'Номер квартиры',required:true},
-    {id:'doorCount',label:'Количество дверей',type:'number',value:1,min:1,max:100,step:1,required:true},
-  ],values=>{
-    const num=values.num.trim(),doorCount=Number(values.doorCount);
-    if(!num||!Number.isInteger(doorCount)||doorCount<1||doorCount>100){toast('Проверьте номер квартиры и количество дверей');return false;}
-    if(floor.apartments.some(a=>String(a.num).trim()===num)){toast('Такая квартира на этаже уже есть');return false;}
-    const apt={id:newRecordId('apt'),num,doors:Array.from({length:doorCount},(_,i)=>({id:newRecordId('d'),n:i+1,status:'not_started',problem:null,photo:false}))};
-    floor.apartments.push(apt);saveState();goto('objects',{objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id});toast('Квартира добавлена');return true;
   });
 }
 
