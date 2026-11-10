@@ -1,41 +1,95 @@
-function floorReportPanel(floor,openings,ids,foreman){
+const FLOOR_STATUS_LABELS={
+  not_started:{label:'Не начато',cls:'neutral'},
+  in_progress:{label:'В работе',cls:'warn'},
+  pending:{label:'Закончен, на проверке',cls:'info'},
+  changes_requested:{label:'Нужна доработка',cls:'warn'},
+  accepted:{label:'Принят',cls:'ok'},
+};
+
+function floorOpeningItems(floor){return (floor.apartments||[]).flatMap(apt=>(apt.openings||[]).map(opening=>({apt,opening})));}
+function floorStatusExplicit(floor){return Boolean(floor&&floor.status&&FLOOR_STATUS_LABELS[floor.status]);}
+function floorStatus(floor){
+  if(floorStatusExplicit(floor))return floor.status;
+  const openings=floorOpeningItems(floor).map(item=>item.opening);
+  if(openings.length&&openings.every(acceptedOpening))return 'accepted';
+  if(openings.some(opening=>opening.reviewStatus==='pending'))return 'pending';
+  if(openings.some(opening=>opening.reviewStatus==='changes_requested'))return 'changes_requested';
+  if(openings.some(opening=>(opening.doors||[]).some(door=>['materials_ready','in_progress','installed'].includes(door.status))))return 'in_progress';
+  return 'not_started';
+}
+
+function floorDoorSummary(items){
+  const rows=[
+    {label:'Одинарные со стеклом',double:false,glass:true,count:0},
+    {label:'Одинарные глухие',double:false,glass:false,count:0},
+    {label:'Двойные со стеклом',double:true,glass:true,count:0},
+    {label:'Двойные глухие',double:true,glass:false,count:0},
+  ];
+  items.forEach(({opening})=>{
+    const double=openingDoorCount(opening)>=2,glass=(opening.doors||[]).some(door=>door.glass);
+    const row=rows.find(item=>item.double===double&&item.glass===glass);
+    if(row)row.count++;
+  });
+  return {
+    rows,
+    glass:rows.filter(row=>row.glass).reduce((sum,row)=>sum+row.count,0),
+    solid:rows.filter(row=>!row.glass).reduce((sum,row)=>sum+row.count,0),
+    double:rows.filter(row=>row.double).reduce((sum,row)=>sum+row.count,0),
+    total:items.length,
+  };
+}
+
+function floorStatusPanel(floor,items,ids,{foreman,manager,canWork}){
+  const status=floorStatus(floor);
+  const meta=FLOOR_STATUS_LABELS[status];
   const report=floor.foremanReport;
-  const pending=openings.filter(item=>!acceptedOpening(item.opening)&&item.opening.reviewStatus!=='pending');
-  const reportInfo=report?.submittedAt?`<p class="hint">Бригада сообщила о завершении этажа: ${htmlEscape(new Date(report.submittedAt).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))}${report.note?` · «${htmlEscape(report.note)}»`:''}</p>`:'';
-  if(!foreman)return reportInfo?`<section class="panel floor-report-panel">${reportInfo}</section>`:'';
-  if(!openings.length)return '';
-  if(!pending.length)return `<section class="panel floor-report-panel"><h3>Этаж отправлен менеджеру</h3>${reportInfo||'<p class="hint">Все проёмы этажа на проверке или приняты.</p>'}</section>`;
-  const ready=pending.filter(item=>item.opening.doors.length&&item.opening.doors.every(door=>(door.status==='installed'||door.status==='accepted')&&(door.photos||[]).length)).length;
-  return `<section class="panel floor-report-panel"><div class="panel-head"><div><h3>Закончили этаж?</h3><span class="hint">Готово к отправке: ${ready} из ${pending.length}. Отчёт уйдёт менеджеру со всеми проёмами этажа сразу.</span></div></div>
-    ${reportInfo}
-    <label class="field"><span>Комментарий к отчёту (необязательно)</span><textarea rows="2" maxlength="2000" data-floor-report-note></textarea></label>
-    <div class="opening-actions"><button class="btn primary" data-submit-floor='${htmlEscape(JSON.stringify(ids))}' ${ready===pending.length?'':'disabled'}>Этаж закончен — отправить отчёт</button></div>
-    ${ready===pending.length?'':'<p class="hint">Кнопка станет активной, когда у каждой двери будет отметка «Установлено» и фото.</p>'}
-  </section>`;
+  const reportDate=report?.submittedAt?new Date(report.submittedAt).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+  const idsAttr=htmlEscape(JSON.stringify(ids));
+  const locked=status==='pending'||status==='accepted';
+  const managerNote=floor.managerNote||items.map(item=>item.opening.managerNote).find(Boolean)||'';
+  let body='';
+  if(status==='changes_requested'&&managerNote)body+=`<div class="opening-feedback"><strong>Замечание менеджера</strong><p>${htmlEscape(managerNote)}</p></div>`;
+  if(report?.submittedAt&&(status==='pending'||status==='accepted'))body+=`<p class="hint">Бригада сообщила о завершении этажа: ${htmlEscape(reportDate)}${report.note?` · «${htmlEscape(report.note)}»`:''}</p>`;
+  if(canWork&&!locked&&items.length){
+    body+=`<div class="floor-status-buttons" role="group" aria-label="Статус этажа">${['not_started','in_progress'].map(value=>`<button type="button" class="btn ${status===value?'primary':''}" data-floor-status='${htmlEscape(JSON.stringify({...ids,status:value}))}'>${FLOOR_STATUS_LABELS[value].label}</button>`).join('')}</div>
+      <label class="field"><span>Комментарий к отчёту (необязательно)</span><textarea rows="2" maxlength="2000" data-floor-report-note></textarea></label>
+      <div class="opening-actions"><button type="button" class="btn primary" data-submit-floor='${idsAttr}'>Этаж закончен — отправить менеджеру</button></div>`;
+  }
+  if(manager&&status==='pending'){
+    body+=`<div class="opening-actions"><button type="button" class="btn primary" data-floor-review="accept" data-floor-ids='${idsAttr}'>Принять этаж</button><button type="button" class="btn" data-floor-review="return" data-floor-ids='${idsAttr}'>Вернуть с замечанием</button></div>`;
+  }
+  if(status==='accepted')body+='<p class="hint">Этаж принят, начисление добавлено в баланс бригады.</p>';
+  return `<section class="panel floor-status-panel"><div class="panel-head"><div><h3>Статус этажа</h3><span class="hint">Статус задаётся для всего этажа, а не для каждой двери</span></div><span class="pill ${meta.cls}">${meta.label}</span></div>${body}</section>`;
 }
 
 function floorOpeningsList(obj,block,floor){
   const brigade=state.brigades.find(item=>item.id===floor.brigadeId);
-  const openings=(floor.apartments||[]).flatMap(apt=>(apt.openings||[]).map(opening=>({apt,opening})));
-  const doors=openings.flatMap(item=>item.opening.doors||[]);
-  const acceptedCount=openings.filter(item=>acceptedOpening(item.opening)).length;
-  const materialRows=materialsTable(openings.map(item=>item.opening)).filter(item=>item.needed>0);
+  const items=floorOpeningItems(floor);
+  const summary=floorDoorSummary(items);
+  const materialRows=materialsTable(items.map(item=>item.opening)).filter(row=>row.needed>0);
   const foreman=isForemanWorkspaceUser();
   const canWork=foreman||!cloudEnabled;
   const manager=canManageWorkspace()&&!foreman;
   const ids={objId:obj.id,blockId:block.id,floorId:floor.id};
+  const plural=(n,one,few,many)=>{const m=n%100,d=n%10;return m>10&&m<20?many:d===1?one:d>=2&&d<=4?few:many;};
+  const composition=manager&&items.length?`<details class="panel floor-composition"><summary>Состав этажа: править по одной двери</summary><div class="floor-composition-list">${items.map(({apt,opening})=>{
+      const context={obj,block,floor,apt};
+      const locked=openingStructureLocked(opening);
+      return `<div class="floor-composition-row"><span>${htmlEscape(opening.title||OPENING_TYPE_LABELS[opening.type]||'Проём')}</span>${locked?'<span class="hint">Изменить нельзя</span>':`<button type="button" class="btn sm danger" data-delete-opening='${htmlEscape(JSON.stringify({openingId:opening.id,...openingContextIds(context)}))}'>Удалить</button>`}</div>`;
+    }).join('')}</div></details>`:'';
   return `
     ${crumb([{label:'Объекты',click:{page:'objects'}},{label:obj.name,click:{page:'objects',objId:obj.id}},{label:block.name,click:{page:'objects',objId:obj.id,blockId:block.id}},{label:`${floor.num} этаж`}])}
     <section class="panel floor-door-summary">
-      <div><span class="dashboard-eyebrow">Ведомость этажа</span><h3>${openings.length} ${openings.length===1?'проём':'проёмов'} · ${doors.length} ${doors.length===1?'дверь':'дверей'}</h3><p>Бригада: <strong>${htmlEscape(brigade?.name||'Не назначена')}</strong> · Принято: ${acceptedCount}</p></div>
+      <div><span class="dashboard-eyebrow">Ведомость этажа</span><h3>${summary.total} ${plural(summary.total,'дверь','двери','дверей')}</h3><p>Бригада: <strong>${htmlEscape(brigade?.name||'Не назначена')}</strong></p></div>
       ${canManageWorkspace()?`<button type="button" class="btn primary" data-add-floor-doors='${htmlEscape(JSON.stringify(ids))}'>+ Добавить двери</button>`:''}
     </section>
-    ${manager?'<div class="opening-role-hint">Состав двери задаётся здесь. Двойная дверь считается одним проёмом с двумя полотнами.</div>':''}
-    ${foreman?'<div class="opening-role-hint">Отмечайте установку каждого полотна, добавляйте фото и отправляйте готовые проёмы менеджеру.</div>':''}
-    ${floorReportPanel(floor,openings,ids,foreman)}
-    <div class="opening-list floor-opening-list">
-      ${openings.map(({apt,opening})=>renderOpeningCard({obj,block,floor,apt,floorLevel:true},opening,{canWork,manager,foreman})).join('')||'<div class="empty">На этаже пока нет дверей. Менеджер может добавить состав этажа.</div>'}
-    </div>
+    <section class="panel floor-summary-list">
+      <div class="floor-summary-totals"><div><strong>${summary.glass}</strong><span>со стеклом</span></div><div><strong>${summary.solid}</strong><span>глухих</span></div><div><strong>${summary.double}</strong><span>двойных</span></div></div>
+      ${summary.total?`<ul class="floor-summary-rows">${summary.rows.filter(row=>row.count).map(row=>`<li><span>${row.label}</span><strong>${row.count}</strong></li>`).join('')}</ul>`:'<div class="empty">На этаже пока нет дверей. Менеджер может добавить состав этажа.</div>'}
+    </section>
+    ${foreman?'<div class="opening-role-hint">Поставьте этажу статус «В работе», а когда всё установлено, отправьте этаж менеджеру одной кнопкой.</div>':''}
+    ${floorStatusPanel(floor,items,ids,{foreman,manager,canWork})}
+    ${composition}
     <section class="panel opening-material-panel"><div class="panel-head"><div><h3>Комплектующие на этаже</h3><span class="hint">Потребность по всему заданному составу</span></div></div><div class="opening-material-grid">${materialRows.map(item=>`<div><span>${htmlEscape(item.name)}</span><strong>${openingQty(item.needed)} ${htmlEscape(item.unit)}</strong></div>`).join('')||'<span class="hint">Добавьте двери, чтобы рассчитать комплектующие.</span>'}</div></section>
   `;
 }
@@ -122,6 +176,8 @@ function openFloorDoorBatchModal(ids){
       rows.push({...item,count,widthMm});
     }
     if(!rows.length){toast('Укажите количество хотя бы в одной строке');return;}
+    const statusBefore=floorStatus(floor);
+    if(statusBefore==='pending'){toast('Этаж на проверке. Сначала примите его или верните бригадиру.');return;}
     const previousState=JSON.parse(JSON.stringify(state));
     floor.apartments=Array.isArray(floor.apartments)?floor.apartments:[];
     let floorEntry=floor.apartments.find(item=>item.isFloorContainer);
@@ -142,6 +198,7 @@ function openFloorDoorBatchModal(ids){
         floorOpenings.push(opening);
       }
     }
+    if(statusBefore==='accepted'||statusBefore==='changes_requested')floor.status='in_progress';
     submit.disabled=true;
     submit.textContent='Сохраняем…';
     try{
@@ -260,14 +317,24 @@ function bindOpeningEvents(container){
   container.querySelectorAll('[data-foreman-note]').forEach(element=>element.addEventListener('input',()=>{
     const context=findOpeningContext(JSON.parse(element.dataset.foremanNote));if(context)context.opening.foremanNote=element.value;
   }));
+  container.querySelectorAll('[data-floor-status]').forEach(element=>element.addEventListener('click',()=>{
+    const data=JSON.parse(element.dataset.floorStatus);
+    runFloorAction('status',{objId:data.objId,blockId:data.blockId,floorId:data.floorId},data.status);
+  }));
   container.querySelectorAll('[data-submit-floor]').forEach(element=>element.addEventListener('click',async()=>{
     const ids=JSON.parse(element.dataset.submitFloor);
     const note=container.querySelector('[data-floor-report-note]')?.value||'';
-    if(!confirm('Отправить менеджеру все проёмы этажа на проверку? После отправки править их будет нельзя, пока менеджер не ответит.'))return;
+    if(!confirm('Отправить этаж менеджеру как законченный? После отправки править его нельзя, пока менеджер не ответит.'))return;
     element.disabled=true;
-    try{await submitForemanFloorReport(ids,note);toast('Отчёт по этажу отправлен менеджеру');}
-    catch(error){toast(error.message||'Не удалось отправить отчёт по этажу');}
-    render();
+    await runFloorAction('submit',ids,note);
+  }));
+  container.querySelectorAll('[data-floor-review]').forEach(element=>element.addEventListener('click',()=>{
+    const ids=JSON.parse(element.dataset.floorIds);
+    if(element.dataset.floorReview==='accept'){
+      if(!confirm('Принять этаж целиком? Бригаде будет начислена оплата по тарифу за каждый проём.'))return;
+      element.disabled=true;
+      runFloorAction('accept',ids);
+    }else openFloorReturnModal(ids);
   }));
   container.querySelectorAll('[data-save-opening]').forEach(element=>element.addEventListener('click',async()=>{
     const context=findOpeningContext(JSON.parse(element.dataset.saveOpening));if(!context)return;
@@ -476,17 +543,129 @@ async function reviewOpening(context,status,note){
   toast('Замечание отправлено бригадиру');render();
 }
 
+function findFloorContext(ids){
+  const obj=state.objects.find(item=>item.id===ids.objId),block=obj?.blocks.find(item=>item.id===ids.blockId),floor=block?.floors.find(item=>item.id===ids.floorId);
+  return obj&&block&&floor?{obj,block,floor}:null;
+}
+
+// Меняет статус этажа и синхронно статусы проёмов и дверей внутри него (локальный режим и возврат менеджером).
+function applyFloorTransitionLocally(context,kind,arg){
+  const floor=context.floor,now=new Date().toISOString();
+  const status=floorStatus(floor);
+  const items=floorOpeningItems(floor).filter(item=>!acceptedOpening(item.opening));
+  const setAll=(review,doorStatus)=>items.forEach(({opening})=>{
+    opening.reviewStatus=review;
+    (opening.doors||[]).forEach(door=>{
+      door.status=doorStatus;
+      door.installedAt=['installed','accepted'].includes(doorStatus)?(door.installedAt||now):null;
+    });
+  });
+  if(kind==='status'){
+    if(status==='pending'||status==='accepted')throw new Error('Этаж уже отправлен менеджеру или принят');
+    floor.status=arg;setAll('not_submitted',arg);
+  }else if(kind==='submit'){
+    if(status==='pending'||status==='accepted')throw new Error('Этаж уже отправлен менеджеру или принят');
+    if(!items.length)throw new Error('На этаже нет дверей, которые можно отправить на проверку');
+    floor.status='pending';setAll('pending','installed');
+    items.forEach(({opening})=>{opening.submittedAt=now;});
+    floor.foremanReport={submittedAt:now,note:arg||'',openingsCount:items.length};
+    delete floor.managerNote;
+  }else if(kind==='return'){
+    floor.status='changes_requested';floor.managerNote=arg;setAll('changes_requested','in_progress');
+    items.forEach(({opening})=>{opening.managerNote=arg;opening.acceptedAt=null;});
+  }else if(kind==='accept'){
+    if(!floor.brigadeId)throw new Error('Сначала назначьте бригаду на этот этаж.');
+    const rate=Number(floor.ratePerOpening);
+    if(!Number.isFinite(rate)||rate<=0)throw new Error('Сначала задайте тариф за проём для этого этажа.');
+    state.financeEntries=Array.isArray(state.financeEntries)?state.financeEntries:[];
+    items.forEach(({opening})=>{
+      const doorCount=(opening.doors||[]).length;
+      state.financeEntries.unshift({
+        id:`accrual-${newRecordId('fe')}`,brigade_id:floor.brigadeId,entry_type:'accrual',
+        amount:rate+(doorCount===2?500:0),occurred_on:now.slice(0,10),floor_id:floor.id,opening_id:opening.id,
+        rate_per_opening:rate,door_count:doorCount,note:opening.title||'Принятый проём',created_at:now,
+      });
+      opening.acceptedAt=now;
+    });
+    setAll('accepted','accepted');
+    floor.status='accepted';delete floor.managerNote;
+  }
+}
+
+async function runFloorAction(kind,ids,arg){
+  const context=findFloorContext(ids);
+  if(!context){toast('Этаж не найден');return;}
+  const messages={status:'Статус этажа обновлён',submit:'Этаж отправлен менеджеру',accept:'Этаж принят, начисление добавлено в баланс бригады',return:'Замечание отправлено бригадиру'};
+  const previousState=JSON.parse(JSON.stringify(state));
+  try{
+    if(cloudEnabled&&isForemanWorkspaceUser()){
+      if(kind==='status')await callFloorRpc('set_foreman_floor_status',ids,{p_status:arg});
+      else if(kind==='submit')await callFloorRpc('submit_foreman_floor',ids,{p_note:arg||''});
+      else throw new Error('Это действие доступно менеджеру');
+    }else if(cloudEnabled&&kind==='accept'){
+      await callFloorRpc('accept_floor_with_accrual',ids,{});
+    }else{
+      applyFloorTransitionLocally(context,kind,arg);
+      await saveManagerOpeningState();
+      if(kind==='accept')refreshBrigadeFinance();
+    }
+    toast(messages[kind]);
+  }catch(error){
+    state=previousState;
+    toast(error.message||'Не удалось выполнить действие');
+  }
+  render();
+}
+
+function openFloorReturnModal(ids){
+  const overlay=document.createElement('div');overlay.className='overlay';
+  overlay.innerHTML=`<div class="modal" role="dialog" aria-modal="true"><h3>Вернуть этаж на доработку</h3><p class="hint">Напишите бригадиру, что нужно исправить на этаже.</p><label class="field"><span>Замечание</span><textarea rows="4" data-manager-note required></textarea></label><div class="modal-actions"><button class="btn ghost" data-cancel>Отмена</button><button class="btn primary" data-confirm>Отправить замечание</button></div></div>`;
+  document.body.appendChild(overlay);overlay.querySelector('[data-cancel]').addEventListener('click',()=>overlay.remove());
+  overlay.querySelector('[data-confirm]').addEventListener('click',async()=>{
+    const note=overlay.querySelector('[data-manager-note]').value.trim();if(!note){toast('Добавьте текст замечания');return;}
+    overlay.remove();await runFloorAction('return',ids,note);
+  });
+}
+
+function reviewFloorRows(source){
+  const out=[];
+  activeObjects(source).forEach(obj=>(obj.blocks||[]).forEach(block=>(block.floors||[]).forEach(floor=>{
+    if(floorStatusExplicit(floor)&&['pending','changes_requested'].includes(floor.status))out.push({obj,block,floor});
+  })));
+  return out;
+}
+function reviewOpeningRows(source){
+  return allOpenings(source).filter(({opening,floor})=>{
+    if(opening.issue?.status==='open'||opening.reviewStatus==='issue_reported')return true;
+    return !floorStatusExplicit(floor)&&['pending','changes_requested'].includes(opening.reviewStatus);
+  });
+}
+function reviewBadgeCount(source){return reviewFloorRows(source).length+reviewOpeningRows(source).length;}
+function pendingReviewCount(source){
+  return reviewFloorRows(source).filter(row=>row.floor.status==='pending').length
+    +reviewOpeningRows(source).filter(({opening})=>['issue_reported','pending'].includes(opening.reviewStatus)).length;
+}
+
 function pageProblems(){
-  const rows=allOpenings(state).filter(({opening})=>['issue_reported','pending','changes_requested'].includes(opening.reviewStatus)||opening.issue?.status==='open');
-  const title=isForemanWorkspaceUser()?'Замечания по проёмам':'Проверка проёмов';
-  return `<div class="panel"><div class="panel-head"><div><h3>${title}</h3><span class="hint">${isForemanWorkspaceUser()?'Ответ менеджера или проверка готовых проёмов':'Сообщения бригадиров и проёмы на проверке'}</span></div><span class="pill info">${rows.filter(row=>['issue_reported','pending'].includes(row.opening.reviewStatus)).length} ожидают ответа</span></div>
-    <div class="review-queue">${rows.map(({opening,apt,floor,block,obj})=>`<article class="review-row"><div><strong>${htmlEscape(obj.name)} · ${htmlEscape(block.name)} · этаж ${htmlEscape(floor.num)}${apt.isFloorContainer?'':` · кв. ${htmlEscape(apt.num)}`}</strong><span>${htmlEscape(opening.title||OPENING_TYPE_LABELS[opening.type])} · ${openingDoorCount(opening)} двери</span><p>${htmlEscape(opening.managerNote||opening.foremanNote||'Ожидает проверки по фото')}</p></div><span class="pill ${['issue_reported','pending'].includes(opening.reviewStatus)?'info':'warn'}">${OPENING_REVIEW_LABELS[opening.reviewStatus]?.label||'Замечание'}</span><button class="btn sm" data-open-opening-context='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id}))}'>Открыть</button></article>`).join('')||'<div class="empty">Нет проёмов на проверке и без замечаний</div>'}</div></div>`;
+  const floorRows=reviewFloorRows(state);
+  const rows=reviewOpeningRows(state);
+  const foremanView=isForemanWorkspaceUser();
+  const title=foremanView?'Замечания':'Проверка этажей';
+  const waiting=pendingReviewCount(state);
+  const floorHtml=floorRows.map(({obj,block,floor})=>{
+    const summary=floorDoorSummary(floorOpeningItems(floor));
+    const meta=FLOOR_STATUS_LABELS[floor.status];
+    return `<article class="review-row"><div><strong>${htmlEscape(obj.name)} · ${htmlEscape(block.name)} · этаж ${htmlEscape(floor.num)}</strong><span>${summary.total} дверей · со стеклом ${summary.glass} · глухих ${summary.solid} · двойных ${summary.double}</span><p>${htmlEscape(floor.status==='changes_requested'?(floor.managerNote||'Нужна доработка'):(floor.foremanReport?.note||'Ожидает проверки'))}</p></div><span class="pill ${meta.cls}">${meta.label}</span><button class="btn sm" data-open-opening-context='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id}))}'>Открыть</button></article>`;
+  }).join('');
+  const openingHtml=rows.map(({opening,apt,floor,block,obj})=>`<article class="review-row"><div><strong>${htmlEscape(obj.name)} · ${htmlEscape(block.name)} · этаж ${htmlEscape(floor.num)}${apt.isFloorContainer?'':` · кв. ${htmlEscape(apt.num)}`}</strong><span>${htmlEscape(opening.title||OPENING_TYPE_LABELS[opening.type])} · ${openingDoorCount(opening)} двери</span><p>${htmlEscape(opening.managerNote||opening.foremanNote||'Ожидает проверки')}</p></div><span class="pill ${['issue_reported','pending'].includes(opening.reviewStatus)?'info':'warn'}">${OPENING_REVIEW_LABELS[opening.reviewStatus]?.label||'Замечание'}</span><button class="btn sm" data-open-opening-context='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id}))}'>Открыть</button></article>`).join('');
+  return `<div class="panel"><div class="panel-head"><div><h3>${title}</h3><span class="hint">${foremanView?'Ответ менеджера по этажам':'Этажи, которые бригады отметили законченными'}</span></div><span class="pill info">${waiting} ожидают ответа</span></div>
+    <div class="review-queue">${floorHtml+openingHtml||'<div class="empty">Нет этажей на проверке и без замечаний</div>'}</div></div>`;
 }
 
 const problemNavItem=NAV_ITEMS.find(item=>item.id==='problems');
 if(problemNavItem){
   problemNavItem.label='Замечания';
-  problemNavItem.badgeFn=source=>allOpenings(source).filter(({opening})=>['issue_reported','pending','changes_requested'].includes(opening.reviewStatus)||opening.issue?.status==='open').length;
+  problemNavItem.badgeFn=source=>reviewBadgeCount(source);
 }
 
 const bindProblemsBase=bindPageEvents;

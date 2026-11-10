@@ -6,7 +6,7 @@ function pageDashboard(){
   const pct=total?Math.round(done/total*100):0;
   const openingList=allOpenings(state);
   const returnedOpenings=openingList.filter(item=>item.opening.reviewStatus==='changes_requested').length;
-  const pendingOpenings=openingList.filter(item=>['issue_reported','pending'].includes(item.opening.reviewStatus)).length;
+  const pendingOpenings=pendingReviewCount(state);
   const problemCount=c.problem+returnedOpenings;
   const newRequests=activeRequests(state).filter(r=>r.status==='new').length;
   const shortMaterials = materialsTable(doors).filter(m=>m.missing>0);
@@ -55,7 +55,7 @@ function pageDashboard(){
       <div class="kpi ok"><div class="val">${done.toLocaleString('ru')}</div><div class="lbl">Установлено</div></div>
       <div class="kpi warn"><div class="val">${(total-done-problemCount).toLocaleString('ru')}</div><div class="lbl">Осталось</div></div>
       <div class="kpi bad"><div class="val">${problemCount}</div><div class="lbl">Открытых замечаний</div></div>
-      <div class="kpi"><div class="val">${pendingOpenings}</div><div class="lbl">Проёмов на проверке</div></div>
+      <div class="kpi"><div class="val">${pendingOpenings}</div><div class="lbl">На проверке</div></div>
       <div class="kpi bad"><div class="val">${shortMaterials.length}</div><div class="lbl">Материалов не хватает</div></div>
     </div>
 

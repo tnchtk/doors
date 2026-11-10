@@ -155,3 +155,18 @@
 @media(min-width:760px){.object-management-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.object-management-card{padding:24px}}
 @media(max-width:520px){.object-management-card{padding:16px}.object-management-head{gap:10px}.object-management-head h3{font-size:16px}.object-management-actions{display:grid;grid-template-columns:1fr 1fr}.object-management-actions .btn{width:100%;min-height:42px}.object-management-actions .btn:last-child:nth-child(odd){grid-column:1/-1}.object-management-block .btn{flex:0 0 auto}}
 @media(prefers-reduced-motion:reduce){.object-management-card{transition:none}}
+
+/* Сводка и статус этажа */
+.floor-summary-list,.floor-status-panel,.floor-composition{margin-top:16px}
+.floor-summary-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.floor-summary-totals>div{padding:14px;border:1px solid var(--line-soft);border-radius:12px;background:var(--bg-2);text-align:center}
+.floor-summary-totals strong{display:block;font-size:26px;line-height:1.1;letter-spacing:-.02em}
+.floor-summary-totals span{display:block;margin-top:4px;color:var(--text-dim);font-size:12px}
+.floor-summary-rows{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:6px}
+.floor-summary-rows li{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:10px;font-size:14px}
+.floor-status-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.floor-status-buttons .btn{min-height:44px;flex:1 1 140px}
+.floor-composition summary{cursor:pointer;font-weight:600;font-size:14px}
+.floor-composition-list{display:grid;gap:8px;margin-top:12px}
+.floor-composition-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:10px;background:var(--bg-2);font-size:13px}
+.floor-composition-row>span:first-child{min-width:0;overflow-wrap:anywhere}

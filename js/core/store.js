@@ -365,23 +365,23 @@ async function saveForemanOpeningWork(context,opening,submit=false,reportIssue=f
   return true;
 }
 
-async function submitForemanFloorReport(ids,note){
-  if(!cloudEnabled||cloudProfile?.role!=='foreman')throw new Error('Отчёт по этажу отправляет бригадир.');
+async function callFloorRpc(name,ids,extra){
   if(!supabaseClient||cloudRevision===null)throw new Error('Общая база ещё загружается. Повторите попытку.');
-  const {data,error}=await withCloudTimeout(supabaseClient.rpc('submit_foreman_floor',{
+  const {data,error}=await withCloudTimeout(supabaseClient.rpc(name,{
     p_expected_revision:cloudRevision,
     p_object_id:ids.objId,
     p_block_id:ids.blockId,
     p_floor_id:ids.floorId,
-    p_note:note||'',
+    ...extra,
   }));
   if(error){
     const message=String(error.message||'');
-    if(message.includes('submit_foreman_floor')&&!message.includes('Не готово'))throw new Error('Для отчёта по этажу выполните js/data/data-base-floor-report.sql в Supabase.');
+    if(message.includes('TARIFF_REQUIRED'))throw new Error('Сначала задайте тариф за проём для этого этажа.');
     if(error.code==='40001'||message.includes('WORKSPACE_CONFLICT')){
       await readCloudState();
-      throw new Error('Данные обновились. Проверьте этаж и отправьте отчёт ещё раз.');
+      throw new Error('Данные обновились. Проверьте этаж и повторите действие.');
     }
+    if(message.includes(name)&&(message.includes('schema cache')||message.includes('does not exist')||message.includes('Could not find')))throw new Error('Для статусов этажа выполните js/data/data-base-floor-status.sql в Supabase.');
     throw error;
   }
   cloudRevision=Number(data);
