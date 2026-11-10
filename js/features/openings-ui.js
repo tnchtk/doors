@@ -1,11 +1,12 @@
 const FLOOR_STATUS_LABELS={
   not_started:{label:'Не начато',cls:'neutral'},
   in_progress:{label:'В работе',cls:'warn'},
-  pending:{label:'Закончен, на проверке',cls:'info'},
+  pending:{label:'На проверке',cls:'info'},
   changes_requested:{label:'Нужна доработка',cls:'warn'},
   accepted:{label:'Принят',cls:'ok'},
 };
 
+function ruPlural(n,one,few,many){const m=n%100,d=n%10;return m>10&&m<20?many:d===1?one:d>=2&&d<=4?few:many;}
 function floorOpeningItems(floor){return (floor.apartments||[]).flatMap(apt=>(apt.openings||[]).map(opening=>({apt,opening})));}
 function floorStatusExplicit(floor){return Boolean(floor&&floor.status&&FLOOR_STATUS_LABELS[floor.status]);}
 function floorStatus(floor){
@@ -39,6 +40,34 @@ function floorDoorSummary(items){
   };
 }
 
+
+const FLOOR_PRIORITY={changes_requested:0,in_progress:1,not_started:2,pending:3,accepted:4};
+function foremanFloorRows(){
+  const rows=[];
+  activeObjects(state).forEach(obj=>(obj.blocks||[]).forEach(block=>(block.floors||[]).forEach(floor=>{
+    const status=floorStatus(floor);
+    rows.push({obj,block,floor,status,summary:floorDoorSummary(floorOpeningItems(floor))});
+  })));
+  return rows.sort((a,b)=>FLOOR_PRIORITY[a.status]-FLOOR_PRIORITY[b.status]||String(a.obj.name).localeCompare(String(b.obj.name),'ru')||(Number(a.floor.num)||0)-(Number(b.floor.num)||0));
+}
+function foremanHome(){
+  const rows=foremanFloorRows();
+  const count=keys=>rows.filter(row=>keys.includes(row.status)).length;
+  const todo=count(['changes_requested','in_progress','not_started']),waiting=count(['pending']),done=count(['accepted']);
+  const list=rows.map(({obj,block,floor,status,summary})=>{
+    const meta=FLOOR_STATUS_LABELS[status];
+    const brigade=state.brigades.find(item=>item.id===floor.brigadeId);
+    const note=status==='changes_requested'&&floor.managerNote?`<p class="my-floor-note">${htmlEscape(floor.managerNote)}</p>`:'';
+    return `<button type="button" class="my-floor-row" data-goto-floor='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id}))}'>
+      <span class="my-floor-main"><strong>${htmlEscape(floor.num)} этаж</strong><span>${htmlEscape(obj.name)} · ${htmlEscape(block.name)}</span><span class="hint">${htmlEscape(brigade?.name||'Бригада не назначена')} · ${summary.total} ${ruPlural(summary.total,'дверь','двери','дверей')} · ${summary.glass} со стеклом · ${summary.solid} глухих · ${summary.double} двойных</span>${note}</span>
+      <span class="pill ${meta.cls}">${meta.label}</span></button>`;
+  }).join('');
+  return `<div class="dashboard-heading"><div><div class="dashboard-eyebrow">Бригадир</div><h2>Мои этажи</h2><p>Откройте этаж, поставьте статус и отправьте менеджеру, когда всё установлено.</p></div></div>
+    <div class="my-floor-counts"><div><strong>${todo}</strong><span>в работе</span></div><div><strong>${waiting}</strong><span>на проверке</span></div><div><strong>${done}</strong><span>принято</span></div></div>
+    <section class="my-floor-list" aria-label="Мои этажи">${list||'<div class="empty">Вам пока не назначены этажи. Попросите менеджера назначить бригаду на этаж.</div>'}</section>
+    ${foremanFinanceCard()}`;
+}
+
 function floorStatusPanel(floor,items,ids,{foreman,manager,canWork}){
   const status=floorStatus(floor);
   const meta=FLOOR_STATUS_LABELS[status];
@@ -50,16 +79,16 @@ function floorStatusPanel(floor,items,ids,{foreman,manager,canWork}){
   let body='';
   if(status==='changes_requested'&&managerNote)body+=`<div class="opening-feedback"><strong>Замечание менеджера</strong><p>${htmlEscape(managerNote)}</p></div>`;
   if(report?.submittedAt&&(status==='pending'||status==='accepted'))body+=`<p class="hint">Бригада сообщила о завершении этажа: ${htmlEscape(reportDate)}${report.note?` · «${htmlEscape(report.note)}»`:''}</p>`;
+  let bar='';
   if(canWork&&!locked&&items.length){
-    body+=`<div class="floor-status-buttons" role="group" aria-label="Статус этажа">${['not_started','in_progress'].map(value=>`<button type="button" class="btn ${status===value?'primary':''}" data-floor-status='${htmlEscape(JSON.stringify({...ids,status:value}))}'>${FLOOR_STATUS_LABELS[value].label}</button>`).join('')}</div>
-      <label class="field"><span>Комментарий к отчёту (необязательно)</span><textarea rows="2" maxlength="2000" data-floor-report-note></textarea></label>
-      <div class="opening-actions"><button type="button" class="btn primary" data-submit-floor='${idsAttr}'>Этаж закончен — отправить менеджеру</button></div>`;
+    body+=`<label class="field"><span>Комментарий к отчёту (необязательно)</span><textarea rows="2" maxlength="2000" data-floor-report-note></textarea></label>`;
+    bar=`<div class="floor-actionbar" role="group" aria-label="Действия по этажу"><div class="floor-status-buttons">${['not_started','in_progress'].map(value=>`<button type="button" class="btn" aria-pressed="${status===value}" data-floor-status='${htmlEscape(JSON.stringify({...ids,status:value}))}'>${FLOOR_STATUS_LABELS[value].label}</button>`).join('')}</div><button type="button" class="btn primary floor-submit" data-submit-floor='${idsAttr}'>Этаж закончен</button></div>`;
   }
   if(manager&&status==='pending'){
-    body+=`<div class="opening-actions"><button type="button" class="btn primary" data-floor-review="accept" data-floor-ids='${idsAttr}'>Принять этаж</button><button type="button" class="btn" data-floor-review="return" data-floor-ids='${idsAttr}'>Вернуть с замечанием</button></div>`;
+    bar=`<div class="floor-actionbar" role="group" aria-label="Проверка этажа"><button type="button" class="btn primary" data-floor-review="accept" data-floor-ids='${idsAttr}'>Принять этаж</button><button type="button" class="btn" data-floor-review="return" data-floor-ids='${idsAttr}'>Вернуть с замечанием</button></div>`;
   }
   if(status==='accepted')body+='<p class="hint">Этаж принят, начисление добавлено в баланс бригады.</p>';
-  return `<section class="panel floor-status-panel"><div class="panel-head"><div><h3>Статус этажа</h3><span class="hint">Статус задаётся для всего этажа, а не для каждой двери</span></div><span class="pill ${meta.cls}">${meta.label}</span></div>${body}</section>`;
+  return `<section class="panel floor-status-panel"><div class="panel-head"><div><h3>Статус этажа</h3><span class="hint">Статус задаётся для всего этажа, а не для каждой двери</span></div><span class="pill ${meta.cls}">${meta.label}</span></div>${body}</section>${bar}`;
 }
 
 function floorOpeningsList(obj,block,floor){
@@ -71,7 +100,7 @@ function floorOpeningsList(obj,block,floor){
   const canWork=foreman||!cloudEnabled;
   const manager=canManageWorkspace()&&!foreman;
   const ids={objId:obj.id,blockId:block.id,floorId:floor.id};
-  const plural=(n,one,few,many)=>{const m=n%100,d=n%10;return m>10&&m<20?many:d===1?one:d>=2&&d<=4?few:many;};
+  const plural=ruPlural;
   const composition=manager&&items.length?`<details class="panel floor-composition"><summary>Состав этажа: править по одной двери</summary><div class="floor-composition-list">${items.map(({apt,opening})=>{
       const context={obj,block,floor,apt};
       const locked=openingStructureLocked(opening);
@@ -317,6 +346,7 @@ function bindOpeningEvents(container){
   container.querySelectorAll('[data-foreman-note]').forEach(element=>element.addEventListener('input',()=>{
     const context=findOpeningContext(JSON.parse(element.dataset.foremanNote));if(context)context.opening.foremanNote=element.value;
   }));
+  container.querySelectorAll('[data-goto-floor]').forEach(element=>element.addEventListener('click',()=>goto('objects',JSON.parse(element.dataset.gotoFloor))));
   container.querySelectorAll('[data-floor-status]').forEach(element=>element.addEventListener('click',()=>{
     const data=JSON.parse(element.dataset.floorStatus);
     runFloorAction('status',{objId:data.objId,blockId:data.blockId,floorId:data.floorId},data.status);
@@ -655,7 +685,7 @@ function pageProblems(){
   const floorHtml=floorRows.map(({obj,block,floor})=>{
     const summary=floorDoorSummary(floorOpeningItems(floor));
     const meta=FLOOR_STATUS_LABELS[floor.status];
-    return `<article class="review-row"><div><strong>${htmlEscape(obj.name)} · ${htmlEscape(block.name)} · этаж ${htmlEscape(floor.num)}</strong><span>${summary.total} дверей · со стеклом ${summary.glass} · глухих ${summary.solid} · двойных ${summary.double}</span><p>${htmlEscape(floor.status==='changes_requested'?(floor.managerNote||'Нужна доработка'):(floor.foremanReport?.note||'Ожидает проверки'))}</p></div><span class="pill ${meta.cls}">${meta.label}</span><button class="btn sm" data-open-opening-context='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id}))}'>Открыть</button></article>`;
+    return `<article class="review-row"><div><strong>${htmlEscape(obj.name)} · ${htmlEscape(block.name)} · этаж ${htmlEscape(floor.num)}</strong><span>${summary.total} ${ruPlural(summary.total,'дверь','двери','дверей')} · ${summary.glass} со стеклом · ${summary.solid} глухих · ${summary.double} двойных</span><p>${htmlEscape(floor.status==='changes_requested'?(floor.managerNote||'Нужна доработка'):(floor.foremanReport?.note||'Ожидает проверки'))}</p></div><span class="pill ${meta.cls}">${meta.label}</span><button class="btn sm" data-open-opening-context='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id}))}'>Открыть</button></article>`;
   }).join('');
   const openingHtml=rows.map(({opening,apt,floor,block,obj})=>`<article class="review-row"><div><strong>${htmlEscape(obj.name)} · ${htmlEscape(block.name)} · этаж ${htmlEscape(floor.num)}${apt.isFloorContainer?'':` · кв. ${htmlEscape(apt.num)}`}</strong><span>${htmlEscape(opening.title||OPENING_TYPE_LABELS[opening.type])} · ${openingDoorCount(opening)} двери</span><p>${htmlEscape(opening.managerNote||opening.foremanNote||'Ожидает проверки')}</p></div><span class="pill ${['issue_reported','pending'].includes(opening.reviewStatus)?'info':'warn'}">${OPENING_REVIEW_LABELS[opening.reviewStatus]?.label||'Замечание'}</span><button class="btn sm" data-open-opening-context='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id}))}'>Открыть</button></article>`).join('');
   return `<div class="panel"><div class="panel-head"><div><h3>${title}</h3><span class="hint">${foremanView?'Ответ менеджера по этажам':'Этажи, которые бригады отметили законченными'}</span></div><span class="pill info">${waiting} ожидают ответа</span></div>

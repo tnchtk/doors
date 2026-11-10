@@ -80,8 +80,8 @@ function floorList(obj, block){
         const pct= ot?Math.round(done/ot*100):0;
         const brigade=state.brigades.find(b=>b.id===f.brigadeId);
         return `<div class="floor-tile-wrap"><div class="tile" data-open-floor="${htmlEscape(f.id)}">
-          <div class="t-name">${f.num} этаж</div>
-          <div class="t-meta">${brigade?htmlEscape(brigade.name):'—'} · ${ot} дверей</div>
+          <div class="t-head"><div class="t-name">${f.num} этаж</div><span class="pill ${FLOOR_STATUS_LABELS[floorStatus(f)].cls}">${FLOOR_STATUS_LABELS[floorStatus(f)].label}</span></div>
+          <div class="t-meta">${brigade?htmlEscape(brigade.name):'—'} · ${ot} ${ruPlural(ot,'дверь','двери','дверей')}</div>
           ${isAdminWorkspaceUser()?`<div class="floor-rate-control"><span>${Number(f.ratePerOpening)>0?`${Number(f.ratePerOpening).toLocaleString('ru-RU')} сом/проём`:'Тариф не задан'}</span><button type="button" class="btn sm" data-floor-rate='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:f.id}))}'>Тариф</button></div>`:''}
           <div class="t-progress">
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>

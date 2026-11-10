@@ -1,4 +1,5 @@
 function pageDashboard(){
+  if(isForemanWorkspaceUser())return foremanHome();
   const doors=allDoors(state);
   const c=countByStatus(doors);
   const total=totalCount(c);

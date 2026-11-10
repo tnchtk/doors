@@ -170,3 +170,28 @@
 .floor-composition-list{display:grid;gap:8px;margin-top:12px}
 .floor-composition-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:10px;background:var(--bg-2);font-size:13px}
 .floor-composition-row>span:first-child{min-width:0;overflow-wrap:anywhere}
+
+/* Экран бригадира: статус на карточке этажа, «Мои этажи», нижняя панель действий */
+.t-head{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.t-head .pill{font-size:11px;white-space:nowrap}
+.my-floor-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:4px 0 16px}
+.my-floor-counts>div{padding:12px 8px;border:1px solid var(--line-soft);border-radius:14px;background:var(--bg-1);text-align:center}
+.my-floor-counts strong{display:block;font-size:24px;line-height:1.1;letter-spacing:-.02em}
+.my-floor-counts span{display:block;margin-top:4px;color:var(--text-dim);font-size:12px}
+.my-floor-list{display:grid;gap:10px}
+.my-floor-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;width:100%;min-height:72px;padding:14px;border:1px solid var(--line-soft);border-radius:16px;background:var(--bg-1);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.my-floor-row:hover,.my-floor-row:focus-visible{border-color:var(--accent-dim)}
+.my-floor-main{display:grid;gap:3px;min-width:0}
+.my-floor-main strong{font-size:17px;letter-spacing:-.02em}
+.my-floor-main>span{overflow-wrap:anywhere;font-size:13px;color:var(--text-dim)}
+.my-floor-note{margin:6px 0 0;padding:8px 10px;border-radius:10px;background:var(--accent-soft);font-size:13px;overflow-wrap:anywhere}
+.my-floor-row .pill{flex:0 0 auto;white-space:nowrap}
+.floor-actionbar{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:30;display:grid;gap:8px;margin-top:16px;padding:10px;border:1px solid var(--line);border-radius:18px;background:var(--bg-1);box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.floor-actionbar .btn{min-height:48px;width:100%}
+.floor-actionbar .floor-status-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+@media(min-width:760px){.floor-actionbar{grid-auto-flow:column;grid-auto-columns:1fr;align-items:center}.floor-actionbar .btn{width:auto}}
+.floor-actionbar .floor-status-buttons .btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--text);font-weight:700}
+.floor-actionbar .floor-status-buttons .btn[aria-pressed="true"]::before{content:"✓ "}
+/* Уведомления не должны перекрывать нижнюю панель действий */
+body:has(.floor-actionbar) .toast-wrap{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+@media(min-width:760px){body:has(.floor-actionbar) .toast-wrap{bottom:calc(96px + env(safe-area-inset-bottom,0px))}}
