@@ -27,9 +27,9 @@ function pageAdmin(){
       }).join('')||'<tr><td colspan="7"><div class="empty">Объектов пока нет. Создайте первый объект.</div></td></tr>'}
       </tbody></table></div>
     </div>
-    <div class="panel"><div class="panel-head"><div><h3>Бригады</h3><span class="hint">Бригада назначается на этаж; бригадир увидит свои этажи</span></div><button class="btn primary sm" data-create-brigade>+ Новая бригада</button></div>
-      <div class="tbl-wrap"><table><thead><tr><th>Бригада</th><th>Бригадир</th><th>Телефон</th><th>Сотрудники</th><th>Базовый тариф</th><th></th></tr></thead><tbody>
-      ${state.brigades.map(b=>`<tr><td>${adminEsc(b.name)}</td><td>${adminEsc(b.leader)}</td><td>${adminEsc(b.phone)}</td><td>${Number(b.workers)||0}</td><td class="mono">${Number(b.defaultRatePerOpening)>0?`${Number(b.defaultRatePerOpening).toLocaleString('ru-RU')} сом`:'—'}</td><td><button class="btn sm" data-admin-edit-brigade="${adminEsc(b.id)}">Изменить</button></td></tr>`).join('')||'<tr><td colspan="6"><div class="empty">Бригад пока нет.</div></td></tr>'}
+    <div class="panel"><div class="panel-head"><div><h3>Бригады</h3><span class="hint">Бригада назначается на этаж. Один бригадир может вести несколько бригад, а у бригады только один бригадир</span></div><button class="btn primary sm" data-create-brigade>+ Новая бригада</button></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Бригада</th><th>Бригадир</th><th>Учётная запись бригадира</th><th>Телефон</th><th>Сотрудники</th><th>Базовый тариф</th><th></th></tr></thead><tbody>
+      ${state.brigades.map(b=>`<tr><td>${adminEsc(b.name)}</td><td>${adminEsc(b.leader)}</td><td data-foreman-cell="${adminEsc(b.id)}">${cloudEnabled?foremanCellHtml(b.id):'—'}</td><td>${adminEsc(b.phone)}</td><td>${Number(b.workers)||0}</td><td class="mono">${Number(b.defaultRatePerOpening)>0?`${Number(b.defaultRatePerOpening).toLocaleString('ru-RU')} сом`:'—'}</td><td><button class="btn sm" data-admin-edit-brigade="${adminEsc(b.id)}">Изменить</button></td></tr>`).join('')||'<tr><td colspan="7"><div class="empty">Бригад пока нет.</div></td></tr>'}
       </tbody></table></div>
     </div>
     ${brigadeFinanceAdminPanel()}
@@ -50,11 +50,11 @@ function adminTeamTable(profiles){
   if(profiles===null)return '<div class="empty">Загружаем сотрудников…</div>';
   if(!profiles.length)return '<div class="empty">Сотрудников пока нет.</div>';
   const roleLabel={admin:'Администратор',manager:'Менеджер',foreman:'Бригадир'};
-  return `<div class="tbl-wrap"><table><thead><tr><th>Сотрудник</th><th>Роль</th><th>Бригада</th><th>Доступ и действия</th></tr></thead><tbody>
+  return `<div class="tbl-wrap"><table><thead><tr><th>Сотрудник</th><th>Роль</th><th>Бригады</th><th>Доступ и действия</th></tr></thead><tbody>
   ${profiles.map(profile=>`<tr>
     <td><strong>${adminEsc(profile.full_name||'Сотрудник')}</strong><div class="hint">${adminEsc(profile.email||'')}</div></td>
     <td><select class="admin-select" data-admin-role="${adminEsc(profile.id)}" aria-label="Роль сотрудника ${adminEsc(profile.full_name)}">${Object.entries(roleLabel).map(([value,label])=>`<option value="${value}" ${profile.role===value?'selected':''}>${label}</option>`).join('')}</select></td>
-    <td><select class="admin-select" data-admin-brigade="${adminEsc(profile.id)}" aria-label="Бригада сотрудника ${adminEsc(profile.full_name)}"><option value="">Не назначена</option>${state.brigades.map(brigade=>`<option value="${adminEsc(brigade.id)}" ${profile.brigade_id===brigade.id?'selected':''}>${adminEsc(brigade.name)}</option>`).join('')}</select></td>
+    <td>${profile.role==='foreman'?adminEsc(((profile.brigade_ids||[]).map(id=>state.brigades.find(item=>item.id===id)?.name).filter(Boolean)).join(', ')||'Не назначены'):'—'}</td>
     <td><div class="admin-profile-actions"><button class="btn sm ${profile.is_active?'':'ghost'}" data-admin-toggle-active="${adminEsc(profile.id)}" data-active="${profile.is_active?'1':'0'}">${profile.is_active?'Отключить':'Включить'}</button>${profile.role==='manager'?`<button class="btn sm danger" data-admin-delete-manager="${adminEsc(profile.id)}" data-manager-name="${adminEsc(profile.full_name||profile.email||'Сотрудник')}">Удалить</button>`:''}</div></td>
   </tr>`).join('')}
   </tbody></table></div>`;
@@ -92,14 +92,51 @@ function openAdminEditModal({title, fields, onSave}){
   overlay.querySelector('input')?.focus();
 }
 
+function adminForemen(){return (adminProfilesCache||[]).filter(profile=>profile.role==='foreman'&&profile.is_active);}
+function foremanOfBrigade(brigadeId){return adminForemen().find(profile=>(profile.brigade_ids||[]).includes(brigadeId))||null;}
+function foremanCellHtml(brigadeId){
+  if(adminProfilesCache===null)return '<span class="hint">Загрузка…</span>';
+  const current=foremanOfBrigade(brigadeId);
+  return `<select class="admin-select" data-brigade-foreman="${adminEsc(brigadeId)}" aria-label="Бригадир этой бригады"><option value="">Не назначен</option>${adminForemen().map(profile=>`<option value="${adminEsc(profile.id)}" ${current?.id===profile.id?'selected':''}>${adminEsc(profile.full_name||profile.email||'Бригадир')}</option>`).join('')}</select>`;
+}
+function fillForemanCells(container){
+  container.querySelectorAll('[data-foreman-cell]').forEach(cell=>{
+    cell.innerHTML=foremanCellHtml(cell.dataset.foremanCell);
+    cell.querySelector('select')?.addEventListener('change',event=>assignBrigadeForeman(container,cell.dataset.foremanCell,event.currentTarget.value));
+  });
+}
+async function setProfileBrigades(profileId,brigadeIds){
+  const {error}=await supabaseClient.from('profiles').update({brigade_ids:brigadeIds}).eq('id',profileId);
+  if(error)throw error;
+  const cached=adminProfilesCache?.find(item=>item.id===profileId);
+  if(cached)cached.brigade_ids=brigadeIds;
+}
+async function assignBrigadeForeman(container,brigadeId,newForemanId){
+  const previous=foremanOfBrigade(brigadeId);
+  if((previous?.id||'')===newForemanId)return;
+  const next=newForemanId?adminProfilesCache.find(item=>item.id===newForemanId):null;
+  const previousIds=previous?[...(previous.brigade_ids||[])]:null;
+  try{
+    if(previous)await setProfileBrigades(previous.id,previousIds.filter(id=>id!==brigadeId));
+    if(next)await setProfileBrigades(next.id,[...new Set([...(next.brigade_ids||[]),brigadeId])]);
+    toast(next?`Бригада закреплена за «${next.full_name||next.email}»`:'Бригадир у бригады снят');
+  }catch(error){
+    if(previous&&previousIds){try{await setProfileBrigades(previous.id,previousIds);}catch{}}
+    toast(error.message||'Не удалось назначить бригадира');
+  }
+  await loadAdminProfiles(container);
+  fillForemanCells(container);
+}
+
 async function loadAdminProfiles(container){
   if(!cloudEnabled||!supabaseClient)return;
   const area=container.querySelector('#adminTeamArea');
   if(area)area.innerHTML=adminTeamTable(null);
-  const {data,error}=await supabaseClient.from('profiles').select('id,full_name,email,role,is_active,brigade_id').order('created_at');
+  const {data,error}=await supabaseClient.from('profiles').select('id,full_name,email,role,is_active,brigade_ids').order('created_at');
   if(error){if(area)area.innerHTML=`<div class="empty">Не удалось загрузить сотрудников: ${adminEsc(error.message)}</div>`;return;}
   adminProfilesCache=data||[];
   if(area)area.innerHTML=adminTeamTable(adminProfilesCache);
+  fillForemanCells(container);
   const hint=container.querySelector('.panel .panel-head .hint');
   if(hint&&hint.textContent.includes('активных учетных записей'))hint.textContent=`${adminProfilesCache.filter(profile=>profile.is_active).length} из 10 активных учетных записей`;
 }
@@ -192,13 +229,6 @@ async function bindAdminEvents(container){
   container.querySelectorAll('[data-admin-role]').forEach(select=>select.addEventListener('change',async()=>{
     try{await saveAdminProfile(container,select.dataset.adminRole,{role:select.value});}
     catch(error){toast(error.message||'Не удалось изменить роль');await loadAdminProfiles(container);}
-  }));
-  container.querySelectorAll('[data-admin-brigade]').forEach(select=>select.addEventListener('change',async()=>{
-    const profile=adminProfilesCache?.find(item=>item.id===select.dataset.adminBrigade);
-    const taken=select.value&&adminProfilesCache?.find(item=>item.id!==select.dataset.adminBrigade&&item.role==='foreman'&&item.is_active&&item.brigade_id===select.value);
-    if(taken){toast(`Эта бригада уже закреплена за бригадиром «${taken.full_name||taken.email}». У каждого бригадира должна быть своя бригада.`);await loadAdminProfiles(container);return;}
-    try{await saveAdminProfile(container,select.dataset.adminBrigade,{brigade_id:select.value||null});}
-    catch(error){toast(error.message||'Не удалось назначить бригаду');await loadAdminProfiles(container);}
   }));
   container.querySelectorAll('[data-admin-toggle-active]').forEach(button=>button.addEventListener('click',async()=>{
     const id=button.dataset.adminToggleActive,active=button.dataset.active!=='1';

@@ -209,7 +209,7 @@ async function loadCloudState(user){
   cloudLoadPromise=(async()=>{
     state=null;cloudError='';cloudStatus='Загрузка общей базы…';
     try{
-      const {data:profile,error:profileError}=await withCloudTimeout(supabaseClient.from('profiles').select('id,full_name,email,role,is_active,brigade_id').eq('id',user.id).maybeSingle());
+      const {data:profile,error:profileError}=await withCloudTimeout(supabaseClient.from('profiles').select('id,full_name,email,role,is_active,brigade_ids').eq('id',user.id).maybeSingle());
       if(profileError)throw profileError;
       if(!profile||!profile.is_active)throw new Error('Учетная запись не активирована. Попросите администратора проверить доступ.');
       cloudProfile=profile;

@@ -1,5 +1,5 @@
 -- Отчёт бригадира «Этаж закончен».
--- Запускать в Supabase SQL Editor после data-base-roles.sql и data-base-photos.sql.
+-- Запускать в Supabase SQL Editor после data-base-foreman-brigades.sql.
 -- Функция отправляет на проверку менеджеру все ещё не отправленные проёмы назначенного этажа
 -- и сохраняет на этаже отметку foremanReport. Если в каком-то проёме есть неустановленная
 -- дверь или дверь без фото, отчёт не отправляется.
@@ -18,7 +18,7 @@ SET search_path=''
 AS $$
 DECLARE
   v_profile_role text;
-  v_brigade_id text;
+  v_brigade_ids text[];
   v_state jsonb;
   v_revision bigint;
   v_new_revision bigint;
@@ -31,9 +31,9 @@ DECLARE
   v_incomplete integer;
   v_now text:=now()::text;
 BEGIN
-  SELECT role,brigade_id INTO v_profile_role,v_brigade_id
+  SELECT role,brigade_ids INTO v_profile_role,v_brigade_ids
   FROM public.profiles WHERE id=(SELECT auth.uid()) AND is_active;
-  IF v_profile_role IS DISTINCT FROM 'foreman' OR v_brigade_id IS NULL THEN
+  IF v_profile_role IS DISTINCT FROM 'foreman' OR COALESCE(cardinality(v_brigade_ids),0)=0 THEN
     RAISE EXCEPTION 'Отправлять отчёт по этажу может только назначенный бригадир' USING ERRCODE='42501';
   END IF;
   IF length(COALESCE(p_note,''))>2000 THEN
@@ -50,7 +50,7 @@ BEGIN
     FOR v_block_row IN SELECT value,ordinality FROM jsonb_array_elements(COALESCE(v_object_row.value->'blocks','[]'::jsonb)) WITH ORDINALITY LOOP
       IF v_block_row.value->>'id'<>p_block_id THEN CONTINUE; END IF;
       FOR v_floor_row IN SELECT value,ordinality FROM jsonb_array_elements(COALESCE(v_block_row.value->'floors','[]'::jsonb)) WITH ORDINALITY LOOP
-        IF v_floor_row.value->>'id'<>p_floor_id OR v_floor_row.value->>'brigadeId' IS DISTINCT FROM v_brigade_id THEN CONTINUE; END IF;
+        IF v_floor_row.value->>'id'<>p_floor_id OR NOT COALESCE(v_floor_row.value->>'brigadeId'=ANY(v_brigade_ids),false) THEN CONTINUE; END IF;
 
         SELECT
           count(*) FILTER (WHERE COALESCE(o.value->>'reviewStatus','') NOT IN ('pending','accepted')),

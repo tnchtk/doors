@@ -285,24 +285,43 @@ function createNewDoor(ctx){
   });
 }
 
-function createNewBrigade(){
+async function activeForemanProfiles(){
+  if(!cloudEnabled||!supabaseClient||!isAdminWorkspaceUser())return [];
+  try{
+    const {data,error}=await withCloudTimeout(supabaseClient.from('profiles').select('id,full_name,email,role,is_active,brigade_ids').order('created_at'));
+    if(error)throw error;
+    if(typeof adminProfilesCache!=='undefined')adminProfilesCache=data||[];
+    return (data||[]).filter(item=>item.role==='foreman'&&item.is_active);
+  }catch(error){toast('Не удалось загрузить список бригадиров: '+(error.message||'ошибка'));return [];}
+}
+
+async function createNewBrigade(){
+  const foremen=await activeForemanProfiles();
+  const showForeman=cloudEnabled&&isAdminWorkspaceUser();
   const fields=[
     {id:'name',label:'Название бригады',required:true},
-    {id:'leader',label:'Бригадир',required:true},
+    ...(showForeman?[{id:'foremanId',label:'Учётная запись бригадира (кто будет вести эту бригаду)',value:'',options:[{value:'',label:foremen.length?'Не выбран — назначу позже':'Бригадиров нет — сначала пригласите бригадира'},...foremen.map(item=>({value:item.id,label:item.full_name||item.email||item.id}))]}]:[]),
+    {id:'leader',label:showForeman?'Имя бригадира (если не выбран выше)':'Бригадир',required:!showForeman},
     {id:'phone',label:'Телефон'},
     {id:'workers',label:'Количество сотрудников',type:'number',value:1,min:1,step:1,required:true},
   ];
   if(isAdminWorkspaceUser())fields.push({id:'defaultRatePerOpening',label:'Базовая цена за проём для новых этажей, сом',type:'number',value:'',min:0,step:'0.01'});
   openDataEntryModal('Новая бригада',fields,async values=>{
-    const name=values.name.trim(),leader=values.leader.trim(),workers=Number(values.workers);
+    const foreman=foremen.find(item=>item.id===values.foremanId)||null;
+    const name=values.name.trim(),leader=(values.leader||'').trim()||(foreman?.full_name||foreman?.email||'').trim(),workers=Number(values.workers);
     const defaultRate=isAdminWorkspaceUser()&&values.defaultRatePerOpening!==''?Number(values.defaultRatePerOpening):null;
-    if(!name||!leader||!Number.isInteger(workers)||workers<1||(defaultRate!==null&&(!Number.isFinite(defaultRate)||defaultRate<=0))){toast('Проверьте данные бригады');return false;}
+    if(!name||!leader||!Number.isInteger(workers)||workers<1||(defaultRate!==null&&(!Number.isFinite(defaultRate)||defaultRate<=0))){toast('Проверьте данные бригады: название и бригадир обязательны');return false;}
     if(state.brigades.some(b=>b.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){toast('Такая бригада уже есть');return false;}
     const previousState=JSON.parse(JSON.stringify(state));
     const brigade={id:newRecordId('br'),name,leader,phone:values.phone.trim(),workers,defaultRatePerOpening:defaultRate};
     state.brigades.push(brigade);await saveState();
     if(cloudEnabled&&cloudWriteBlocked){try{await readCloudState();}catch{state=previousState;}render();throw new Error('Бригада не сохранена. Обновите данные и повторите попытку.');}
-    render();toast('Бригада создана');return true;
+    if(foreman){
+      const {error}=await supabaseClient.from('profiles').update({brigade_ids:[...new Set([...(foreman.brigade_ids||[]),brigade.id])]}).eq('id',foreman.id);
+      if(error){render();toast('Бригада создана, но привязать бригадира не удалось: '+error.message+'. Назначьте его в «Сотрудники и роли».');return true;}
+      if(typeof adminProfilesCache!=='undefined'&&adminProfilesCache){const cached=adminProfilesCache.find(item=>item.id===foreman.id);if(cached)cached.brigade_ids=[...new Set([...(cached.brigade_ids||[]),brigade.id])];}
+    }
+    render();toast(foreman?`Бригада создана и закреплена за «${foreman.full_name||foreman.email}»`:'Бригада создана');return true;
   });
 }
 
