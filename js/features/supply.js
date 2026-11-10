@@ -18,14 +18,14 @@ function pageSupply(){
           const obj=findObj(r.objId);
           return `<div class="reqline" style="flex-direction:column;align-items:stretch;gap:6px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <strong style="font-size:13px;">${r.status==='new'?'<span class="inline-dot bad" aria-hidden="true"></span>':''}Заявка №${r.id.replace('req','')} — ${obj?obj.name:''}, ${r.blockName}, ${r.floor} эт., кв. ${r.apt}</strong>
+              <strong style="font-size:13px;">${r.status==='new'?'<span class="inline-dot bad" aria-hidden="true"></span>':''}Заявка №${r.id.replace('req','')} — ${htmlEscape(obj?obj.name:'')}, ${htmlEscape(r.blockName)}, ${r.floor} эт., кв. ${r.apt}</strong>
               <select class="req-status-select" data-req-status="${r.id}">
                 ${REQ_STATUS_ORDER.map(s=>`<option value="${s}" ${s===r.status?'selected':''}>${REQ_STATUS[s]}</option>`).join('')}
               </select>
             </div>
             <div style="font-size:12px;color:var(--text-dim);">
               ${brigade?brigade.name:''} · ${r.items.map(it=>`${MAT_BY_ID[it.matId].name} ${it.qty} ${MAT_BY_ID[it.matId].unit}`).join(', ')}
-              ${r.comment?`<div style="margin-top:3px;font-style:italic;color:var(--text-faint);">«${r.comment}»</div>`:''}
+              ${r.comment?`<div style="margin-top:3px;font-style:italic;color:var(--text-faint);">«${htmlEscape(r.comment)}»</div>`:''}
             </div>
           </div>`;
         }).join('')}
@@ -35,7 +35,7 @@ function pageSupply(){
         <div class="panel-head"><h3>Потребность по объектам</h3></div>
         ${shortageByObj.map(({o,mt})=>`
           <div style="margin-bottom:16px;">
-            <div style="font-size:13px;font-weight:600;margin-bottom:8px;">${o.name}</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;">${htmlEscape(o.name)}</div>
             ${mt.length===0 ? `<div style="font-size:12px;color:var(--ok);"><span class="inline-dot ok" aria-hidden="true"></span>Материалов хватает</div>` :
               mt.map(m=>`<div class="reqline" style="padding:6px 0;">
                 <span style="font-size:12px;color:var(--text-dim)">${m.name}</span>

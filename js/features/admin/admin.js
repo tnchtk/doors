@@ -40,7 +40,7 @@ function pageAdmin(){
     </div>`:`<div class="panel"><div class="panel-head"><h3>Сотрудники и роли</h3></div><p class="admin-note admin-warning">Управление учетными записями доступно после подключения Supabase.</p></div>`}
     <div class="panel"><div class="panel-head"><h3>Резервные копии</h3></div>
       <p class="admin-note">JSON-копия содержит объекты, двери, заявки, закупки и складские движения. Финансовый журнал скачивается отдельно в разделе тарифов.</p>
-      <div class="admin-actions"><button class="btn primary" data-admin-backup>Скачать копию JSON</button><label class="btn" for="adminImport">Восстановить из JSON</label><input id="adminImport" type="file" accept="application/json,.json" hidden>${cloudEnabled?'':'<button class="btn" data-admin-reset>Сбросить демо данные</button>'}</div>
+      <div class="admin-actions"><button class="btn primary" data-admin-backup>Скачать копию JSON</button>${isAdminWorkspaceUser()?'<label class="btn" for="adminImport">Восстановить из JSON</label><input id="adminImport" type="file" accept="application/json,.json" hidden>':''}${cloudEnabled?'':'<button class="btn" data-admin-reset>Сбросить демо данные</button>'}</div>
       ${cloudEnabled?'':'<p class="admin-note admin-warning">Локальный режим хранит данные только в этом браузере.</p>'}
     </div>`;
 }
@@ -195,6 +195,8 @@ async function bindAdminEvents(container){
   }));
   container.querySelectorAll('[data-admin-brigade]').forEach(select=>select.addEventListener('change',async()=>{
     const profile=adminProfilesCache?.find(item=>item.id===select.dataset.adminBrigade);
+    const taken=select.value&&adminProfilesCache?.find(item=>item.id!==select.dataset.adminBrigade&&item.role==='foreman'&&item.is_active&&item.brigade_id===select.value);
+    if(taken){toast(`Эта бригада уже закреплена за бригадиром «${taken.full_name||taken.email}». У каждого бригадира должна быть своя бригада.`);await loadAdminProfiles(container);return;}
     try{await saveAdminProfile(container,select.dataset.adminBrigade,{brigade_id:select.value||null});}
     catch(error){toast(error.message||'Не удалось назначить бригаду');await loadAdminProfiles(container);}
   }));
@@ -224,10 +226,17 @@ async function bindAdminEvents(container){
   container.querySelector('#adminImport')?.addEventListener('change',async e=>{
     const file=e.target.files?.[0];if(!file)return;
     try{
-      const backup=JSON.parse(await file.text());const data=backup.state;
-      if(!data||!Array.isArray(data.objects)||!Array.isArray(data.brigades)||!Array.isArray(data.requests)||!Array.isArray(data.purchases)||!Array.isArray(data.movements))throw new Error('Неверная структура');
-      if(!confirm('Текущие данные будут заменены данными из копии. Продолжить?'))return;
-      state=data;saveState();render();toast('Резервная копия восстановлена');
+      if(!isAdminWorkspaceUser()){toast('Восстанавливать данные из копии может только администратор');return;}
+      if(file.size>20*1024*1024)throw new Error('Файл слишком большой');
+      const backup=JSON.parse(await file.text());const data=backup?.state;
+      if(backup?.format!=='doorscrm-backup'||!data||!Array.isArray(data.objects)||!Array.isArray(data.brigades)||!Array.isArray(data.requests)||!Array.isArray(data.purchases)||!Array.isArray(data.movements))throw new Error('Неверная структура');
+      const restored=normalizeCloudState(data);
+      if(!confirm(`Текущие данные будут заменены данными из копии (объектов: ${restored.objects.length}, бригад: ${restored.brigades.length}). Продолжить?`))return;
+      const previous=state;
+      state=restored;
+      await saveState();
+      if(cloudEnabled&&cloudWriteBlocked){state=previous;render();toast('Копия не сохранена в общей базе, данные не изменены');return;}
+      render();toast('Резервная копия восстановлена');
     }catch(err){toast('Не удалось прочитать копию JSON');}
     finally{e.target.value='';}
   });

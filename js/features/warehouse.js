@@ -42,7 +42,7 @@ function pageWarehouse(){
               <td><span class="pill ${typeCls}">${typeLabel}</span></td>
               <td>${MAT_BY_ID[m.matId].name}</td>
               <td class="mono">${m.qty}</td>
-              <td style="color:var(--text-dim)">${m.note}</td>
+              <td style="color:var(--text-dim)">${htmlEscape(m.note)}</td>
             </tr>`;
           }).join('')}
         </tbody>

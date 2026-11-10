@@ -23,7 +23,7 @@ function pageObjects(){
 function crumb(segments){
   return `<div class="tree-crumb">${segments.map((s,i)=>`
     ${i>0?'<span class="sep">/</span>':''}
-    <span class="seg ${i===segments.length-1?'current':''}" ${s.click?`data-crumb-go='${JSON.stringify(s.click)}'`:''}>${s.label}</span>
+    <span class="seg ${i===segments.length-1?'current':''}" ${s.click?`data-crumb-go='${htmlEscape(JSON.stringify(s.click))}'`:''}>${htmlEscape(s.label)}</span>
   `).join('')}</div>`;
 }
 
@@ -35,7 +35,7 @@ function objectsList(){
         const od=objDoors(state,o.id); const oc=countByStatus(od); const ot=totalCount(oc); const done=doneCount(oc);
         const pct= ot?Math.round(done/ot*100):0;
         return `<div class="tile" data-open-obj="${o.id}">
-          <div class="t-name">${o.name}</div>
+          <div class="t-name">${htmlEscape(o.name)}</div>
           <div class="t-meta">${o.blocks.length} блоков · ${ot} дверей ${oc.problem?`· <span style="color:var(--bad)">${oc.problem} проблем</span>`:''}</div>
           <div class="t-progress">
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
@@ -57,7 +57,7 @@ function blockList(obj){
         const c=countByStatus(doors.map(d=>({door:d}))); const ot=totalCount(c); const done=doneCount(c);
         const pct= ot?Math.round(done/ot*100):0;
         return `<div class="tile" data-open-block="${b.id}">
-          <div class="t-name">${b.name}</div>
+          <div class="t-name">${htmlEscape(b.name)}</div>
           <div class="t-meta">${b.floors.length} этажей · ${ot} дверей</div>
           <div class="t-progress">
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
@@ -72,7 +72,7 @@ function blockList(obj){
 function floorList(obj, block){
   return `
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name, click:{page:'objects', objId:obj.id}}, {label:block.name}])}
-    <div class="panel-head"><h3>Этажи · ${block.name}</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-floor='${JSON.stringify({objId:obj.id,blockId:block.id})}'>+ Новый этаж</button>`:''}</div>
+    <div class="panel-head"><h3>Этажи · ${htmlEscape(block.name)}</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-floor='${JSON.stringify({objId:obj.id,blockId:block.id})}'>+ Новый этаж</button>`:''}</div>
     <div class="card-grid">
       ${block.floors.map(f=>{
         const doors=[]; f.apartments.forEach(a=>apartmentDoors(a).forEach(item=>doors.push(item.door)));
@@ -81,7 +81,7 @@ function floorList(obj, block){
         const brigade=state.brigades.find(b=>b.id===f.brigadeId);
         return `<div class="floor-tile-wrap"><div class="tile" data-open-floor="${htmlEscape(f.id)}">
           <div class="t-name">${f.num} этаж</div>
-          <div class="t-meta">${brigade?brigade.name:'—'} · ${ot} дверей</div>
+          <div class="t-meta">${brigade?htmlEscape(brigade.name):'—'} · ${ot} дверей</div>
           ${isAdminWorkspaceUser()?`<div class="floor-rate-control"><span>${Number(f.ratePerOpening)>0?`${Number(f.ratePerOpening).toLocaleString('ru-RU')} сом/проём`:'Тариф не задан'}</span><button type="button" class="btn sm" data-floor-rate='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:f.id}))}'>Тариф</button></div>`:''}
           <div class="t-progress">
             <div class="bar"><span style="width:${pct}%;background:${pct>75?'var(--ok)':pct>50?'var(--warn)':'var(--bad)'}"></span></div>
@@ -98,7 +98,7 @@ function doorList(obj, block, floor, apt){
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name, click:{page:'objects', objId:obj.id}}, {label:block.name, click:{page:'objects', objId:obj.id, blockId:block.id}}, {label:floor.num+' этаж', click:{page:'objects', objId:obj.id, blockId:block.id, floorId:floor.id}}, {label:'кв. '+apt.num}])}
     <div class="panel-head" style="margin-bottom:14px;">
       <h3>Двери — квартира ${apt.num}</h3>
-      ${canManageWorkspace()?`<button class="btn sm" data-create-door='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id})}'>+ Добавить дверь</button><button class="btn primary sm" data-new-request='${JSON.stringify({objId:obj.id, blockName:block.name, floor:floor.num, apt:apt.num, brigadeId:floor.brigadeId})}'>+ Заявка на материалы</button>`:''}
+      ${canManageWorkspace()?`<button class="btn sm" data-create-door='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id})}'>+ Добавить дверь</button><button class="btn primary sm" data-new-request='${htmlEscape(JSON.stringify({objId:obj.id, blockName:block.name, floor:floor.num, apt:apt.num, brigadeId:floor.brigadeId}))}'>+ Заявка на материалы</button>`:''}
     </div>
     <div class="door-grid">
       ${apartmentDoors(apt).map(({door:d})=>{

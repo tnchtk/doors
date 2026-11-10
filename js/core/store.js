@@ -282,7 +282,9 @@ async function cloudSignOut(){
 }
 
 async function persistCloudSnapshot(snapshot){
-  if(cloudWriteBlocked||!cloudUser||cloudRevision===null)return;
+  if(!cloudUser||cloudRevision===null)return;
+  // Каждая попытка сохранения проверяется по ревизии на сервере, поэтому прошлая ошибка не должна навсегда блокировать запись.
+  cloudWriteBlocked=false;
   cloudSavePending=true;
   try{
     const {data,error}=await supabaseClient.rpc('save_app_state',{
@@ -318,7 +320,7 @@ function saveState(){
   if(!state)return;
   if(cloudEnabled&&cloudProfile?.role==='foreman'){
     cloudStatus='Режим просмотра';
-    if(typeof toast==='function')toast('В этом шаге бригадиру доступен просмотр назначенных этажей.');
+    if(typeof toast==='function')toast('Эта правка недоступна бригадиру. Отмечайте двери, добавляйте фото и отправляйте проём на проверку в карточке проёма.');
     readCloudState().then(()=>{if(typeof render==='function')render();}).catch(error=>{
       cloudError=error.message||'Не удалось обновить назначенные этажи';
       if(typeof render==='function')render();
@@ -363,6 +365,31 @@ async function saveForemanOpeningWork(context,opening,submit=false,reportIssue=f
   return true;
 }
 
+async function submitForemanFloorReport(ids,note){
+  if(!cloudEnabled||cloudProfile?.role!=='foreman')throw new Error('Отчёт по этажу отправляет бригадир.');
+  if(!supabaseClient||cloudRevision===null)throw new Error('Общая база ещё загружается. Повторите попытку.');
+  const {data,error}=await withCloudTimeout(supabaseClient.rpc('submit_foreman_floor',{
+    p_expected_revision:cloudRevision,
+    p_object_id:ids.objId,
+    p_block_id:ids.blockId,
+    p_floor_id:ids.floorId,
+    p_note:note||'',
+  }));
+  if(error){
+    const message=String(error.message||'');
+    if(message.includes('submit_foreman_floor')&&!message.includes('Не готово'))throw new Error('Для отчёта по этажу выполните js/data/data-base-floor-report.sql в Supabase.');
+    if(error.code==='40001'||message.includes('WORKSPACE_CONFLICT')){
+      await readCloudState();
+      throw new Error('Данные обновились. Проверьте этаж и отправьте отчёт ещё раз.');
+    }
+    throw error;
+  }
+  cloudRevision=Number(data);
+  cloudStatus='Общая база подключена';cloudError='';
+  await readCloudState();
+  return true;
+}
+
 async function acceptOpeningWithAccrual(context){
   if(!cloudEnabled){
     if(!context.floor.brigadeId)throw new Error('Сначала назначьте бригаду на этот этаж.');
@@ -375,7 +402,7 @@ async function acceptOpeningWithAccrual(context){
     context.opening.acceptedAt=acceptedAt;
     context.opening.doors.forEach(door=>{door.status='accepted';door.installedAt=door.installedAt||acceptedAt;});
     state.financeEntries=Array.isArray(state.financeEntries)?state.financeEntries:[];
-    const localId=window.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const localId=window.crypto.randomUUID();
     state.financeEntries.unshift({
       id:`accrual-${localId}`,
       brigade_id:context.floor.brigadeId,
@@ -443,6 +470,3 @@ if(cloudEnabled){
   if(!loadLegacyState())saveState();
 }
 
-/* =========================================================================
-   ROUTER + APP SHELL
-   ========================================================================= */

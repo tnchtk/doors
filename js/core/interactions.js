@@ -379,7 +379,7 @@ function openRequestModal(ctx){
     <div class="modal">
       <h3>Новая заявка на материалы</h3>
       <div class="field"><label>Объект / блок / этаж / квартира</label>
-        <input value="${findObj(ctx.objId).name}, ${ctx.blockName}, ${ctx.floor} эт., кв. ${ctx.apt}" disabled></div>
+        <input value="${htmlEscape(findObj(ctx.objId).name)}, ${htmlEscape(ctx.blockName)}, ${ctx.floor} эт., кв. ${ctx.apt}" disabled></div>
       <div id="reqItems">
         ${MATERIALS.slice(0,6).map(m=>`
           <div class="mini-grid"><span class="m-name">${m.name}</span><input type="number" min="0" value="0" data-mat="${m.id}"></div>

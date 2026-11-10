@@ -15,7 +15,7 @@ function pagePurchases(){
               <tr>
                 <td>${MAT_BY_ID[p.matId].name}</td>
                 <td class="mono">${p.qty} ${MAT_BY_ID[p.matId].unit}</td>
-                <td>${p.supplier}</td>
+                <td>${htmlEscape(p.supplier)}</td>
                 <td class="mono">${(p.qty*p.price).toLocaleString('ru')} сом</td>
                 <td>
                   <select class="req-status-select" data-pur-status="${p.id}">

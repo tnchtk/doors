@@ -18,13 +18,13 @@ function pageProblems(){
           ${problems.map(x=>{
             const brigade=state.brigades.find(b=>b.id===x.floor.brigadeId);
             return `<tr>
-              <td>${x.obj.name}</td>
-              <td>${x.block.name}</td>
+              <td>${htmlEscape(x.obj.name)}</td>
+              <td>${htmlEscape(x.block.name)}</td>
               <td>${x.floor.num}</td>
               <td>${x.apt.isFloorContainer?`Этаж ${x.floor.num}`:`Квартира ${x.apt.num}`}</td>
               <td>№${x.door.n}</td>
               <td><span class="pill bad">${x.door.problem}</span></td>
-              <td>${brigade?brigade.name:'—'}</td>
+              <td>${brigade?htmlEscape(brigade.name):'—'}</td>
               <td><button class="btn sm" data-resolve-problem='${JSON.stringify({objId:x.obj.id, blockId:x.block.id, floorId:x.floor.id, aptId:x.apt.id, doorId:x.door.id})}'>Решено</button></td>
             </tr>`;
           }).join('')}

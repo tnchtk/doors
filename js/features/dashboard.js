@@ -68,7 +68,7 @@ function pageDashboard(){
           <tbody>
             ${objRows.map(r=>`
               <tr class="clickable" data-open-obj="${r.o.id}">
-                <td><strong>${r.o.name}</strong></td>
+                <td><strong>${htmlEscape(r.o.name)}</strong></td>
                 <td class="mono">${r.ot}</td>
                 <td class="mono" style="color:var(--ok)">${r.odone}</td>
                 <td class="mono">${r.ot-r.odone-r.problem}</td>
@@ -92,7 +92,7 @@ function pageDashboard(){
           ${state.brigades.slice(0,6).map(b=>{
             const installedToday = installedTodayFor(b.id);
             return `<div class="reqline" style="padding:8px 0;">
-              <span style="font-size:13px;">${b.name}</span>
+              <span style="font-size:13px;">${htmlEscape(b.name)}</span>
               <span class="pill ok">+${installedToday}</span>
             </div>`;
           }).join('')}

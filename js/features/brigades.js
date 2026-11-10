@@ -26,7 +26,7 @@ function brigadeTransactionDate(entry){
 }
 function openingFinanceLabel(entry){
   const found=allFinanceOpenings(state).find(item=>item.opening.id===(entry.opening_id||entry.openingId));
-  return found?`${found.obj.name} · ${found.block.name} · ${found.floor.num} этаж${found.apt.isFloorContainer?'':` · кв. ${found.apt.num}`}`:'';
+  return found?`${htmlEscape(found.obj.name)} · ${htmlEscape(found.block.name)} · ${found.floor.num} этаж${found.apt.isFloorContainer?'':` · кв. ${found.apt.num}`}`:'';
 }
 function allFinanceOpenings(source){
   const rows=[];
@@ -49,8 +49,8 @@ function pageBrigades(){
           const s=brigadeStats(b.id);
           const money=brigadeFinanceTotals(b.id);
           return `<tr class="clickable" data-open-brigade="${b.id}">
-            <td><strong>${b.name}</strong></td>
-            <td>${b.leader}</td>
+            <td><strong>${htmlEscape(b.name)}</strong></td>
+            <td>${htmlEscape(b.leader)}</td>
             <td class="mono" style="color:var(--ok)">${s.done}</td>
             <td class="mono">+${s.today}</td>
             <td class="mono">${s.remaining}</td>
@@ -74,9 +74,9 @@ function brigadeDetail(b){
     ${crumb([{label:'Бригады', click:{page:'brigades'}}, {label:b.name}])}
     <div class="two-col">
       <div class="panel">
-        <div class="panel-head"><h3>${b.name}</h3><span class="pill info">${s.blocksServed.length} участка</span></div>
+        <div class="panel-head"><h3>${htmlEscape(b.name)}</h3><span class="pill info">${s.blocksServed.length} участка</span></div>
         <div style="font-size:13px;color:var(--text-dim);line-height:2;">
-          Руководитель: <strong style="color:var(--text)">${b.leader}</strong><br>
+          Руководитель: <strong style="color:var(--text)">${htmlEscape(b.leader)}</strong><br>
           Телефон: <span class="mono">${b.phone}</span><br>
           Рабочих: ${b.workers} чел.<br>
           Обслуживает: ${s.blocksServed.join(', ')}
