@@ -1,3 +1,19 @@
+function floorReportPanel(floor,openings,ids,foreman){
+  const report=floor.foremanReport;
+  const pending=openings.filter(item=>!acceptedOpening(item.opening)&&item.opening.reviewStatus!=='pending');
+  const reportInfo=report?.submittedAt?`<p class="hint">Бригада сообщила о завершении этажа: ${htmlEscape(new Date(report.submittedAt).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))}${report.note?` · «${htmlEscape(report.note)}»`:''}</p>`:'';
+  if(!foreman)return reportInfo?`<section class="panel floor-report-panel">${reportInfo}</section>`:'';
+  if(!openings.length)return '';
+  if(!pending.length)return `<section class="panel floor-report-panel"><h3>Этаж отправлен менеджеру</h3>${reportInfo||'<p class="hint">Все проёмы этажа на проверке или приняты.</p>'}</section>`;
+  const ready=pending.filter(item=>item.opening.doors.length&&item.opening.doors.every(door=>(door.status==='installed'||door.status==='accepted')&&(door.photos||[]).length)).length;
+  return `<section class="panel floor-report-panel"><div class="panel-head"><div><h3>Закончили этаж?</h3><span class="hint">Готово к отправке: ${ready} из ${pending.length}. Отчёт уйдёт менеджеру со всеми проёмами этажа сразу.</span></div></div>
+    ${reportInfo}
+    <label class="field"><span>Комментарий к отчёту (необязательно)</span><textarea rows="2" maxlength="2000" data-floor-report-note></textarea></label>
+    <div class="opening-actions"><button class="btn primary" data-submit-floor='${htmlEscape(JSON.stringify(ids))}' ${ready===pending.length?'':'disabled'}>Этаж закончен — отправить отчёт</button></div>
+    ${ready===pending.length?'':'<p class="hint">Кнопка станет активной, когда у каждой двери будет отметка «Установлено» и фото.</p>'}
+  </section>`;
+}
+
 function floorOpeningsList(obj,block,floor){
   const brigade=state.brigades.find(item=>item.id===floor.brigadeId);
   const openings=(floor.apartments||[]).flatMap(apt=>(apt.openings||[]).map(opening=>({apt,opening})));
@@ -16,6 +32,7 @@ function floorOpeningsList(obj,block,floor){
     </section>
     ${manager?'<div class="opening-role-hint">Состав двери задаётся здесь. Двойная дверь считается одним проёмом с двумя полотнами.</div>':''}
     ${foreman?'<div class="opening-role-hint">Отмечайте установку каждого полотна, добавляйте фото и отправляйте готовые проёмы менеджеру.</div>':''}
+    ${floorReportPanel(floor,openings,ids,foreman)}
     <div class="opening-list floor-opening-list">
       ${openings.map(({apt,opening})=>renderOpeningCard({obj,block,floor,apt,floorLevel:true},opening,{canWork,manager,foreman})).join('')||'<div class="empty">На этаже пока нет дверей. Менеджер может добавить состав этажа.</div>'}
     </div>
@@ -242,6 +259,15 @@ function bindOpeningEvents(container){
   }));
   container.querySelectorAll('[data-foreman-note]').forEach(element=>element.addEventListener('input',()=>{
     const context=findOpeningContext(JSON.parse(element.dataset.foremanNote));if(context)context.opening.foremanNote=element.value;
+  }));
+  container.querySelectorAll('[data-submit-floor]').forEach(element=>element.addEventListener('click',async()=>{
+    const ids=JSON.parse(element.dataset.submitFloor);
+    const note=container.querySelector('[data-floor-report-note]')?.value||'';
+    if(!confirm('Отправить менеджеру все проёмы этажа на проверку? После отправки править их будет нельзя, пока менеджер не ответит.'))return;
+    element.disabled=true;
+    try{await submitForemanFloorReport(ids,note);toast('Отчёт по этажу отправлен менеджеру');}
+    catch(error){toast(error.message||'Не удалось отправить отчёт по этажу');}
+    render();
   }));
   container.querySelectorAll('[data-save-opening]').forEach(element=>element.addEventListener('click',async()=>{
     const context=findOpeningContext(JSON.parse(element.dataset.saveOpening));if(!context)return;
