@@ -5,7 +5,7 @@ const ORDER_MANUAL_STATUSES=['created','ordered','transit'];
 
 function isOrder(purchase){return purchase?.kind==='order'&&Array.isArray(purchase.items);}
 function ordersList(){return (state.purchases||[]).filter(isOrder);}
-function legacyPurchases(){return (state.purchases||[]).filter(purchase=>!isOrder(purchase));}
+function legacyPurchases(){return (state.purchases||[]).filter(purchase=>!purchase.kind);}
 function canOrderMaterials(){return canManageWorkspace()&&!(typeof isForemanWorkspaceUser==='function'&&isForemanWorkspaceUser());}
 
 // Проёмы, которые ещё не вошли ни в один заказ (принятые и старые записи не заказываем).

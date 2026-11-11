@@ -16,3 +16,6 @@
   .avr-form-foot p { max-width:600px; }
   .avr-form-foot .btn { flex:none; }
 }
+.avr-floors-title { margin:18px 0 8px; color:var(--text-dim); font-size:12px; font-weight:600; }
+.avr-parties { margin-top:16px; }
+@media (min-width:700px) { .avr-parties { grid-template-columns:minmax(140px,.7fr) minmax(200px,1.2fr) minmax(160px,.9fr); } }
