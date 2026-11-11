@@ -65,6 +65,7 @@ function foremanHome(){
   return `<div class="dashboard-heading"><div><div class="dashboard-eyebrow">Бригадир</div><h2>Мои этажи</h2><p>Откройте этаж, поставьте статус и отправьте менеджеру, когда всё установлено.</p></div></div>
     <div class="my-floor-counts"><div><strong>${todo}</strong><span>в работе</span></div><div><strong>${waiting}</strong><span>на проверке</span></div><div><strong>${done}</strong><span>принято</span></div></div>
     <section class="my-floor-list" aria-label="Мои этажи">${list||'<div class="empty">Вам пока не назначены этажи. Попросите менеджера назначить бригаду на этаж.</div>'}</section>
+    ${typeof foremanRequestsPanel==='function'?foremanRequestsPanel():''}
     ${foremanFinanceCard()}`;
 }
 
@@ -119,6 +120,7 @@ function floorOpeningsList(obj,block,floor){
     ${foreman?'<div class="opening-role-hint">Поставьте этажу статус «В работе», а когда всё установлено, отправьте этаж менеджеру одной кнопкой.</div>':''}
     ${floorStatusPanel(floor,items,ids,{foreman,manager,canWork})}
     ${composition}
+    ${typeof floorRequestsPanel==='function'?floorRequestsPanel(obj,block,floor,foreman):''}
     <section class="panel opening-material-panel"><div class="panel-head"><div><h3>Комплектующие на этаже</h3><span class="hint">Потребность по всему заданному составу</span></div></div><div class="opening-material-grid">${materialRows.map(item=>`<div><span>${htmlEscape(item.name)}</span><strong>${openingQty(item.needed)} ${htmlEscape(item.unit)}</strong></div>`).join('')||'<span class="hint">Добавьте двери, чтобы рассчитать комплектующие.</span>'}</div></section>
   `;
 }

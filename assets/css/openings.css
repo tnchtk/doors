@@ -224,3 +224,20 @@ body:has(.floor-actionbar) .toast-wrap{bottom:calc(150px + env(safe-area-inset-b
 .order-row-name{min-width:0;overflow-wrap:anywhere}
 .order-row input{width:100%;min-height:40px;padding:6px 8px;text-align:center}
 .order-section{margin-top:8px;font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em}
+
+/* Снабжение: заявки */
+.supply-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:4px 0 14px}
+.supply-filters .segmented{display:flex;gap:6px}
+.supply-filters select{min-height:40px;max-width:100%}
+.supply-group{margin-top:16px}
+.supply-group h4{margin:0 0 8px;font-size:14px;color:var(--text-dim)}
+.supply-items{list-style:none;margin:8px 0;padding:0;display:grid;gap:6px}
+.supply-items li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:10px;font-size:13px}
+.supply-items li>span:first-child{min-width:0;overflow-wrap:anywhere}
+.floor-requests{margin-top:16px}
+.request-lines{display:grid;gap:8px;margin-top:10px}
+.request-line{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--bg-2)}
+.request-line>div{display:grid;gap:2px;min-width:0}
+.request-line .hint{overflow-wrap:anywhere}
+.request-line .pill{flex:0 0 auto;white-space:nowrap}
+.request-row{grid-template-columns:minmax(0,1fr) 96px}

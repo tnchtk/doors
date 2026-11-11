@@ -381,7 +381,7 @@ async function callFloorRpc(name,ids,extra){
       await readCloudState();
       throw new Error('Данные обновились. Проверьте этаж и повторите действие.');
     }
-    if(message.includes(name)&&(message.includes('schema cache')||message.includes('does not exist')||message.includes('Could not find')))throw new Error('Для статусов этажа выполните js/data/data-base-floor-status.sql в Supabase.');
+    if(message.includes(name)&&(message.includes('schema cache')||message.includes('does not exist')||message.includes('Could not find')))throw new Error('Для этого действия выполните новые SQL-файлы из папки js/data в Supabase (data-base-floor-status.sql и data-base-material-requests.sql).');
     throw error;
   }
   cloudRevision=Number(data);
@@ -444,6 +444,12 @@ async function acceptOpeningWithAccrual(context){
   await readCloudState();
   return true;
 }
+
+// Бригадир не получает живых обновлений, поэтому перечитываем данные, когда он возвращается на вкладку.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible'||!cloudEnabled||cloudProfile?.role!=='foreman'||cloudSavePending||!supabaseClient)return;
+  readCloudState().then(()=>{if(typeof render==='function')render();}).catch(()=>{});
+});
 
 if(cloudEnabled){
   state=null;
