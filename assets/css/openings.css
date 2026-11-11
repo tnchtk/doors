@@ -195,3 +195,32 @@
 /* Уведомления не должны перекрывать нижнюю панель действий */
 body:has(.floor-actionbar) .toast-wrap{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 @media(min-width:760px){body:has(.floor-actionbar) .toast-wrap{bottom:calc(96px + env(safe-area-inset-bottom,0px))}}
+
+/* Заказы материалов */
+.panel-head-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.floor-head-actions{display:flex;flex-wrap:wrap;gap:8px}
+.order-ready-list,.order-list{display:grid;gap:10px}
+.order-ready-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line-soft);border-radius:14px;background:var(--bg-2)}
+.order-ready-row>div{display:grid;gap:2px;min-width:0}
+.order-ready-row .btn{flex:0 0 auto;min-height:44px}
+.order-card{padding:14px;border:1px solid var(--line-soft);border-radius:16px;background:var(--bg-1)}
+.order-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.order-card-head h4{margin:0;font-size:17px;letter-spacing:-.02em}
+.order-scope{margin:10px 0 4px;font-size:13px;overflow-wrap:anywhere}
+.order-comment{margin:6px 0;font-size:13px;font-style:italic;color:var(--text-dim);overflow-wrap:anywhere}
+.order-items{margin-top:8px}
+.order-items summary{cursor:pointer;font-size:13px;font-weight:600;min-height:32px}
+.order-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.order-actions .btn,.order-actions select{min-height:42px}
+.order-modal{max-width:720px}
+.order-floors{display:grid;gap:6px;margin:10px 0;max-height:34vh;overflow:auto}
+.order-floor{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--bg-2);cursor:pointer}
+.order-floor input{width:20px;height:20px;margin-top:2px;flex:0 0 auto}
+.order-floor>span{display:grid;gap:2px;min-width:0}
+.order-rows{display:grid;gap:6px;margin:12px 0}
+.order-row{display:grid;grid-template-columns:minmax(0,1fr) 56px 56px 84px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:13px}
+.order-row-head{color:var(--text-dim);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom-color:var(--line)}
+.order-row-head span:not(:first-child),.order-row-num{text-align:center}
+.order-row-name{min-width:0;overflow-wrap:anywhere}
+.order-row input{width:100%;min-height:40px;padding:6px 8px;text-align:center}
+.order-section{margin-top:8px;font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em}

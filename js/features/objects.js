@@ -50,7 +50,7 @@ function objectsList(){
 function blockList(obj){
   return `
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name}])}
-    <div class="panel-head"><h3>Блоки · ${htmlEscape(obj.name)}</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-block="${htmlEscape(obj.id)}">+ Добавить блок</button>`:''}</div>
+    <div class="panel-head"><h3>Блоки · ${htmlEscape(obj.name)}</h3><div class="panel-head-actions">${canOrderMaterials()?`<button class="btn sm" data-order-scope='${htmlEscape(JSON.stringify({objId:obj.id}))}'>Заказать материалы</button>`:''}${canManageWorkspace()?`<button class="btn primary sm" data-create-block="${htmlEscape(obj.id)}">+ Добавить блок</button>`:''}</div></div>
     <div class="card-grid">
       ${(obj.blocks||[]).map(b=>{
         const doors=[]; b.floors.forEach(f=>f.apartments.forEach(a=>apartmentDoors(a).forEach(item=>doors.push(item.door))));
@@ -72,7 +72,7 @@ function blockList(obj){
 function floorList(obj, block){
   return `
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name, click:{page:'objects', objId:obj.id}}, {label:block.name}])}
-    <div class="panel-head"><h3>Этажи · ${htmlEscape(block.name)}</h3>${canManageWorkspace()?`<button class="btn primary sm" data-create-floor='${JSON.stringify({objId:obj.id,blockId:block.id})}'>+ Новый этаж</button>`:''}</div>
+    <div class="panel-head"><h3>Этажи · ${htmlEscape(block.name)}</h3><div class="panel-head-actions">${canOrderMaterials()?`<button class="btn sm" data-order-scope='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id}))}'>Заказать материалы</button>`:''}${canManageWorkspace()?`<button class="btn primary sm" data-create-floor='${JSON.stringify({objId:obj.id,blockId:block.id})}'>+ Новый этаж</button>`:''}</div></div>
     <div class="card-grid">
       ${block.floors.map(f=>{
         const doors=[]; f.apartments.forEach(a=>apartmentDoors(a).forEach(item=>doors.push(item.door)));

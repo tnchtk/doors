@@ -127,10 +127,7 @@ function materialsTable(items){
   openings.forEach(opening=>Object.entries(openingMaterialNeeds(opening)).forEach(([id,qty])=>required[id]=(required[id]||0)+qty));
   return MATERIALS.map(material=>{
     const needed=Number((required[material.id]||0).toFixed(2));
-    const seedRatio=((material.id.charCodeAt(0)*7)%23)/100;
-    let ratio=.90+seedRatio-(material.id==='dobor'?.14:0)-(material.id==='korob'?.06:0)-(material.id==='pena'?.10:0);
-    ratio=Math.max(.55,Math.min(1.08,ratio));
-    const have=Number((needed*ratio).toFixed(2));
+    const have=Number((typeof warehouseStock==='function'?warehouseStock(material.id):0).toFixed(2));
     return {...material,needed,have,missing:Number(Math.max(0,needed-have).toFixed(2))};
   });
 }

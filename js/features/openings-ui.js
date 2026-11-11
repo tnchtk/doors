@@ -110,7 +110,7 @@ function floorOpeningsList(obj,block,floor){
     ${crumb([{label:'Объекты',click:{page:'objects'}},{label:obj.name,click:{page:'objects',objId:obj.id}},{label:block.name,click:{page:'objects',objId:obj.id,blockId:block.id}},{label:`${floor.num} этаж`}])}
     <section class="panel floor-door-summary">
       <div><span class="dashboard-eyebrow">Ведомость этажа</span><h3>${summary.total} ${plural(summary.total,'дверь','двери','дверей')}</h3><p>Бригада: <strong>${htmlEscape(brigade?.name||'Не назначена')}</strong></p></div>
-      ${canManageWorkspace()?`<button type="button" class="btn primary" data-add-floor-doors='${htmlEscape(JSON.stringify(ids))}'>+ Добавить двери</button>`:''}
+      ${canManageWorkspace()?`<div class="floor-head-actions"><button type="button" class="btn primary" data-add-floor-doors='${htmlEscape(JSON.stringify(ids))}'>+ Добавить двери</button>${canOrderMaterials()?`<button type="button" class="btn" data-order-scope='${htmlEscape(JSON.stringify(ids))}'>Заказать</button>`:''}</div>`:''}
     </section>
     <section class="panel floor-summary-list">
       <div class="floor-summary-totals"><div><strong>${summary.glass}</strong><span>со стеклом</span></div><div><strong>${summary.solid}</strong><span>глухих</span></div><div><strong>${summary.double}</strong><span>двойных</span></div></div>
