@@ -241,3 +241,12 @@ body:has(.floor-actionbar) .toast-wrap{bottom:calc(150px + env(safe-area-inset-b
 .request-line .hint{overflow-wrap:anywhere}
 .request-line .pill{flex:0 0 auto;white-space:nowrap}
 .request-row{grid-template-columns:minmax(0,1fr) 96px}
+
+/* Админка: панель «Сохранить» для несохранённых правок */
+.admin-savebar{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;padding:10px 12px;border:1px solid var(--accent-dim);border-radius:18px;background:var(--bg-1);box-shadow:0 10px 30px rgba(0,0,0,.18);font-size:14px;font-weight:600}
+.admin-savebar[hidden]{display:none}
+.admin-savebar-actions{display:flex;gap:8px;flex:1 1 220px;justify-content:flex-end}
+.admin-savebar-actions .btn{min-height:46px;flex:1 1 0}
+tr.is-changed td{background:var(--accent-soft)}
+.admin-select.is-changed{border-color:var(--accent-dim);background:var(--accent-soft)}
+.admin-pending{margin-top:4px;color:var(--accent-dim);font-weight:600}

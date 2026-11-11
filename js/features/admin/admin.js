@@ -42,21 +42,39 @@ function pageAdmin(){
       <p class="admin-note">JSON-копия содержит объекты, двери, заявки, закупки и складские движения. Финансовый журнал скачивается отдельно в разделе тарифов.</p>
       <div class="admin-actions"><button class="btn primary" data-admin-backup>Скачать копию JSON</button>${isAdminWorkspaceUser()?'<label class="btn" for="adminImport">Восстановить из JSON</label><input id="adminImport" type="file" accept="application/json,.json" hidden>':''}${cloudEnabled?'':'<button class="btn" data-admin-reset>Сбросить демо данные</button>'}</div>
       ${cloudEnabled?'':'<p class="admin-note admin-warning">Локальный режим хранит данные только в этом браузере.</p>'}
-    </div>`;
+    </div>
+    ${cloudEnabled?`<div class="admin-savebar" data-admin-savebar ${adminDraftCount()?'':'hidden'}><span data-admin-draft-count>Несохранённых изменений: ${adminDraftCount()}</span><div class="admin-savebar-actions"><button type="button" class="btn ghost" data-admin-discard>Отменить</button><button type="button" class="btn primary" data-admin-save>Сохранить</button></div></div>`:''}`;
 }
 
+// Несохранённые правки: роль и доступ сотрудников, бригадир у бригады. Применяются кнопкой «Сохранить».
+const adminDraft={profiles:{},brigades:{}};
+function adminEffective(profile){
+  const draft=adminDraft.profiles[profile.id]||{};
+  return {role:draft.role??profile.role,is_active:draft.is_active??profile.is_active};
+}
+function adminProfileChanged(profile){
+  const effective=adminEffective(profile);
+  return effective.role!==profile.role||effective.is_active!==profile.is_active;
+}
+function adminDraftCount(){
+  const profiles=(adminProfilesCache||[]).filter(adminProfileChanged).length;
+  const brigades=Object.entries(adminDraft.brigades).filter(([brigadeId,foremanId])=>(foremanOfBrigade(brigadeId)?.id||'')!==foremanId).length;
+  return profiles+brigades;
+}
 function adminTeamTable(profiles){
   if(!cloudEnabled)return '';
   if(profiles===null)return '<div class="empty">Загружаем сотрудников…</div>';
   if(!profiles.length)return '<div class="empty">Сотрудников пока нет.</div>';
   const roleLabel={admin:'Администратор',manager:'Менеджер',foreman:'Бригадир'};
   return `<div class="tbl-wrap"><table><thead><tr><th>Сотрудник</th><th>Роль</th><th>Бригады</th><th>Доступ и действия</th></tr></thead><tbody>
-  ${profiles.map(profile=>`<tr>
+  ${profiles.map(profile=>{
+    const effective=adminEffective(profile);
+    return `<tr class="${adminProfileChanged(profile)?'is-changed':''}">
     <td><strong>${adminEsc(profile.full_name||'Сотрудник')}</strong><div class="hint">${adminEsc(profile.email||'')}</div></td>
-    <td><select class="admin-select" data-admin-role="${adminEsc(profile.id)}" aria-label="Роль сотрудника ${adminEsc(profile.full_name)}">${Object.entries(roleLabel).map(([value,label])=>`<option value="${value}" ${profile.role===value?'selected':''}>${label}</option>`).join('')}</select></td>
-    <td>${profile.role==='foreman'?adminEsc(((profile.brigade_ids||[]).map(id=>state.brigades.find(item=>item.id===id)?.name).filter(Boolean)).join(', ')||'Не назначены'):'—'}</td>
-    <td><div class="admin-profile-actions"><button class="btn sm ${profile.is_active?'':'ghost'}" data-admin-toggle-active="${adminEsc(profile.id)}" data-active="${profile.is_active?'1':'0'}">${profile.is_active?'Отключить':'Включить'}</button>${profile.role==='manager'?`<button class="btn sm danger" data-admin-delete-manager="${adminEsc(profile.id)}" data-manager-name="${adminEsc(profile.full_name||profile.email||'Сотрудник')}">Удалить</button>`:''}</div></td>
-  </tr>`).join('')}
+    <td><select class="admin-select" data-admin-role="${adminEsc(profile.id)}" aria-label="Роль сотрудника ${adminEsc(profile.full_name)}">${Object.entries(roleLabel).map(([value,label])=>`<option value="${value}" ${effective.role===value?'selected':''}>${label}</option>`).join('')}</select></td>
+    <td>${effective.role==='foreman'?adminEsc(((profile.brigade_ids||[]).map(id=>state.brigades.find(item=>item.id===id)?.name).filter(Boolean)).join(', ')||'Не назначены'):'—'}</td>
+    <td><div class="admin-profile-actions"><button class="btn sm ${effective.is_active?'':'ghost'}" data-admin-toggle-active="${adminEsc(profile.id)}">${effective.is_active?'Отключить':'Включить'}</button>${profile.role==='manager'?`<button class="btn sm danger" data-admin-delete-manager="${adminEsc(profile.id)}" data-manager-name="${adminEsc(profile.full_name||profile.email||'Сотрудник')}">Удалить</button>`:''}</div>${adminProfileChanged(profile)?'<div class="hint admin-pending">Не сохранено</div>':''}</td>
+  </tr>`;}).join('')}
   </tbody></table></div>`;
 }
 
@@ -96,14 +114,33 @@ function adminForemen(){return (adminProfilesCache||[]).filter(profile=>profile.
 function foremanOfBrigade(brigadeId){return adminForemen().find(profile=>(profile.brigade_ids||[]).includes(brigadeId))||null;}
 function foremanCellHtml(brigadeId){
   if(adminProfilesCache===null)return '<span class="hint">Загрузка…</span>';
-  const current=foremanOfBrigade(brigadeId);
-  return `<select class="admin-select" data-brigade-foreman="${adminEsc(brigadeId)}" aria-label="Бригадир этой бригады"><option value="">Не назначен</option>${adminForemen().map(profile=>`<option value="${adminEsc(profile.id)}" ${current?.id===profile.id?'selected':''}>${adminEsc(profile.full_name||profile.email||'Бригадир')}</option>`).join('')}</select>`;
+  const draftValue=adminDraft.brigades[brigadeId];
+  const selectedId=draftValue!==undefined?draftValue:(foremanOfBrigade(brigadeId)?.id||'');
+  const changed=draftValue!==undefined&&draftValue!==(foremanOfBrigade(brigadeId)?.id||'');
+  const foremen=(adminProfilesCache||[]).filter(profile=>adminEffective(profile).role==='foreman'&&adminEffective(profile).is_active);
+  return `<select class="admin-select ${changed?'is-changed':''}" data-brigade-foreman="${adminEsc(brigadeId)}" aria-label="Бригадир этой бригады"><option value="">Не назначен</option>${foremen.map(profile=>`<option value="${adminEsc(profile.id)}" ${selectedId===profile.id?'selected':''}>${adminEsc(profile.full_name||profile.email||'Бригадир')}</option>`).join('')}</select>`;
 }
 function fillForemanCells(container){
   container.querySelectorAll('[data-foreman-cell]').forEach(cell=>{
     cell.innerHTML=foremanCellHtml(cell.dataset.foremanCell);
-    cell.querySelector('select')?.addEventListener('change',event=>assignBrigadeForeman(container,cell.dataset.foremanCell,event.currentTarget.value));
+    cell.querySelector('select')?.addEventListener('change',event=>{
+      const brigadeId=cell.dataset.foremanCell,value=event.currentTarget.value;
+      if((foremanOfBrigade(brigadeId)?.id||'')===value)delete adminDraft.brigades[brigadeId];else adminDraft.brigades[brigadeId]=value;
+      refreshAdminDraftUi(container);
+    });
   });
+}
+function refreshAdminDraftUi(container){
+  const area=container.querySelector('#adminTeamArea');
+  if(area&&adminProfilesCache!==null)area.innerHTML=adminTeamTable(adminProfilesCache);
+  fillForemanCells(container);
+  const bar=container.querySelector('[data-admin-savebar]');
+  if(bar){
+    const count=adminDraftCount();
+    bar.hidden=count===0;
+    const label=bar.querySelector('[data-admin-draft-count]');
+    if(label)label.textContent=`Несохранённых изменений: ${count}`;
+  }
 }
 async function setProfileBrigades(profileId,brigadeIds){
   const {error}=await supabaseClient.from('profiles').update({brigade_ids:brigadeIds}).eq('id',profileId);
@@ -111,21 +148,47 @@ async function setProfileBrigades(profileId,brigadeIds){
   const cached=adminProfilesCache?.find(item=>item.id===profileId);
   if(cached)cached.brigade_ids=brigadeIds;
 }
-async function assignBrigadeForeman(container,brigadeId,newForemanId){
-  const previous=foremanOfBrigade(brigadeId);
-  if((previous?.id||'')===newForemanId)return;
-  const next=newForemanId?adminProfilesCache.find(item=>item.id===newForemanId):null;
-  const previousIds=previous?[...(previous.brigade_ids||[])]:null;
+
+// Применяет все несохранённые правки по порядку: роли и доступ, затем бригадиры у бригад.
+async function saveAdminDraft(container){
+  const bar=container.querySelector('[data-admin-savebar]');
+  const saveButton=bar?.querySelector('[data-admin-save]');
+  const profileChanges=(adminProfilesCache||[]).filter(adminProfileChanged);
+  if(profileChanges.some(profile=>profile.id===cloudUser?.id&&adminEffective(profile).role!==profile.role)){
+    if(!confirm('Вы меняете свою роль. После сохранения доступ к админ-панели может пропасть. Продолжить?'))return;
+  }
+  if(saveButton){saveButton.disabled=true;saveButton.textContent='Сохраняем…';}
   try{
-    if(previous)await setProfileBrigades(previous.id,previousIds.filter(id=>id!==brigadeId));
-    if(next)await setProfileBrigades(next.id,[...new Set([...(next.brigade_ids||[]),brigadeId])]);
-    toast(next?`Бригада закреплена за «${next.full_name||next.email}»`:'Бригадир у бригады снят');
+    for(const profile of profileChanges){
+      const effective=adminEffective(profile);
+      const changes={};
+      if(effective.role!==profile.role)changes.role=effective.role;
+      if(effective.is_active!==profile.is_active)changes.is_active=effective.is_active;
+      const {error}=await supabaseClient.from('profiles').update(changes).eq('id',profile.id);
+      if(error)throw error;
+      Object.assign(profile,changes);
+      delete adminDraft.profiles[profile.id];
+      if(cloudUser?.id===profile.id&&cloudProfile)Object.assign(cloudProfile,changes);
+    }
+    // Бригадиры у бригад: сначала освобождаем, потом закрепляем, чтобы не было двух бригадиров у одной бригады.
+    const desired={};
+    (state.brigades||[]).forEach(brigade=>{desired[brigade.id]=brigade.id in adminDraft.brigades?adminDraft.brigades[brigade.id]:(foremanOfBrigade(brigade.id)?.id||'');});
+    const foremen=(adminProfilesCache||[]).filter(profile=>profile.role==='foreman');
+    const plans=foremen.map(profile=>{
+      const next=(state.brigades||[]).filter(brigade=>desired[brigade.id]===profile.id).map(brigade=>brigade.id);
+      const keepUnknown=(profile.brigade_ids||[]).filter(id=>!(state.brigades||[]).some(brigade=>brigade.id===id));
+      return {profile,next:[...next,...keepUnknown]};
+    }).filter(plan=>[...plan.next].sort().join(',')!==[...(plan.profile.brigade_ids||[])].sort().join(','));
+    for(const plan of plans.filter(item=>item.next.length<=(item.profile.brigade_ids||[]).length))await setProfileBrigades(plan.profile.id,plan.next);
+    for(const plan of plans.filter(item=>item.next.length>(item.profile.brigade_ids||[]).length))await setProfileBrigades(plan.profile.id,plan.next);
+    adminDraft.brigades={};
+    toast('Изменения сохранены');
   }catch(error){
-    if(previous&&previousIds){try{await setProfileBrigades(previous.id,previousIds);}catch{}}
-    toast(error.message||'Не удалось назначить бригадира');
+    toast(error.message||'Не удалось сохранить изменения. Остальные правки остались в списке.');
   }
   await loadAdminProfiles(container);
-  fillForemanCells(container);
+  if(saveButton){saveButton.disabled=false;saveButton.textContent='Сохранить';}
+  if(cloudProfile&&cloudProfile.role!=='admin')render();
 }
 
 async function loadAdminProfiles(container){
@@ -135,23 +198,11 @@ async function loadAdminProfiles(container){
   const {data,error}=await supabaseClient.from('profiles').select('id,full_name,email,role,is_active,brigade_ids').order('created_at');
   if(error){if(area)area.innerHTML=`<div class="empty">Не удалось загрузить сотрудников: ${adminEsc(error.message)}</div>`;return;}
   adminProfilesCache=data||[];
-  if(area)area.innerHTML=adminTeamTable(adminProfilesCache);
-  fillForemanCells(container);
+  refreshAdminDraftUi(container);
   const hint=container.querySelector('.panel .panel-head .hint');
   if(hint&&hint.textContent.includes('активных учетных записей'))hint.textContent=`${adminProfilesCache.filter(profile=>profile.is_active).length} из 10 активных учетных записей`;
 }
 
-async function saveAdminProfile(container,id,changes){
-  const {error}=await supabaseClient.from('profiles').update(changes).eq('id',id);
-  if(error)throw error;
-  const current=adminProfilesCache?.find(profile=>profile.id===id);
-  if(current)Object.assign(current,changes);
-  if(cloudUser?.id===id&&cloudProfile){Object.assign(cloudProfile,changes);}
-  await loadAdminProfiles(container);
-  if(cloudUser?.id===id&&changes.role)render();
-  toast('Данные сотрудника обновлены');
-  return true;
-}
 
 
 function editExistingObject(objectId){
@@ -185,6 +236,24 @@ function editExistingBlock(ids){
     render();toast('Блок обновлён');return true;
   }});
 }
+
+async function adminDeleteManager(container,button){
+    const id=button.dataset.adminDeleteManager,name=button.dataset.managerName||'этого менеджера';
+    if(!confirm(`Удалить учётную запись менеджера «${name}»? Он больше не сможет войти. Его запись будет удалена из Supabase.`))return;
+    button.disabled=true;
+    try{
+      const {data,error}=await supabaseClient.functions.invoke('delete-manager',{body:{user_id:id}});
+      if(error){
+        let message=error.message||'Не удалось удалить менеджера';
+        try{const details=await error.context?.json();if(details?.error)message=details.error;}catch{}
+        if(error.context?.status===404||message.includes('delete-manager')&&(message.includes('not found')||message.includes('schema cache')))message='Сначала разверните функцию delete-manager в проекте Supabase.';
+        throw new Error(message);
+      }
+      if(data?.error)throw new Error(data.error);
+      adminProfilesCache=(adminProfilesCache||[]).filter(profile=>profile.id!==id);
+      render();toast(`Менеджер «${name}» удалён`);
+    }catch(error){toast(error.message||'Не удалось удалить менеджера');button.disabled=false;}
+  }
 
 async function bindAdminEvents(container){
   const status=container.querySelector('#dbStatus');
@@ -226,32 +295,37 @@ async function bindAdminEvents(container){
       return true;
     }
   }));
-  container.querySelectorAll('[data-admin-role]').forEach(select=>select.addEventListener('change',async()=>{
-    try{await saveAdminProfile(container,select.dataset.adminRole,{role:select.value});}
-    catch(error){toast(error.message||'Не удалось изменить роль');await loadAdminProfiles(container);}
-  }));
-  container.querySelectorAll('[data-admin-toggle-active]').forEach(button=>button.addEventListener('click',async()=>{
-    const id=button.dataset.adminToggleActive,active=button.dataset.active!=='1';
-    try{await saveAdminProfile(container,id,{is_active:active});}
-    catch(error){toast(error.message||'Не удалось изменить доступ');await loadAdminProfiles(container);}
-  }));
-  container.querySelectorAll('[data-admin-delete-manager]').forEach(button=>button.addEventListener('click',async()=>{
-    const id=button.dataset.adminDeleteManager,name=button.dataset.managerName||'этого менеджера';
-    if(!confirm(`Удалить учётную запись менеджера «${name}»? Он больше не сможет войти. Его запись будет удалена из Supabase.`))return;
-    button.disabled=true;
-    try{
-      const {data,error}=await supabaseClient.functions.invoke('delete-manager',{body:{user_id:id}});
-      if(error){
-        let message=error.message||'Не удалось удалить менеджера';
-        try{const details=await error.context?.json();if(details?.error)message=details.error;}catch{}
-        if(error.context?.status===404||message.includes('delete-manager')&&(message.includes('not found')||message.includes('schema cache')))message='Сначала разверните функцию delete-manager в проекте Supabase.';
-        throw new Error(message);
-      }
-      if(data?.error)throw new Error(data.error);
-      adminProfilesCache=(adminProfilesCache||[]).filter(profile=>profile.id!==id);
-      render();toast(`Менеджер «${name}» удалён`);
-    }catch(error){toast(error.message||'Не удалось удалить менеджера');button.disabled=false;}
-  }));
+  const teamArea=container.querySelector('#adminTeamArea');
+  teamArea?.addEventListener('change',event=>{
+    const select=event.target.closest('[data-admin-role]');
+    if(!select)return;
+    const profile=adminProfilesCache?.find(item=>item.id===select.dataset.adminRole);if(!profile)return;
+    const draft=adminDraft.profiles[profile.id]=adminDraft.profiles[profile.id]||{};
+    if(select.value===profile.role)delete draft.role;else draft.role=select.value;
+    if(!Object.keys(draft).length)delete adminDraft.profiles[profile.id];
+    refreshAdminDraftUi(container);
+  });
+  teamArea?.addEventListener('click',event=>{
+    const button=event.target.closest('[data-admin-toggle-active]');
+    if(!button)return;
+    const profile=adminProfilesCache?.find(item=>item.id===button.dataset.adminToggleActive);if(!profile)return;
+    const effective=adminEffective(profile);
+    const draft=adminDraft.profiles[profile.id]=adminDraft.profiles[profile.id]||{};
+    if(!effective.is_active===profile.is_active)delete draft.is_active;else draft.is_active=!effective.is_active;
+    if(!Object.keys(draft).length)delete adminDraft.profiles[profile.id];
+    refreshAdminDraftUi(container);
+  });
+  teamArea?.addEventListener('click',async event=>{
+    const button=event.target.closest('[data-admin-delete-manager]');
+    if(!button)return;
+    await adminDeleteManager(container,button);
+  });
+  container.querySelector('[data-admin-save]')?.addEventListener('click',()=>saveAdminDraft(container));
+  container.querySelector('[data-admin-discard]')?.addEventListener('click',()=>{
+    adminDraft.profiles={};adminDraft.brigades={};
+    refreshAdminDraftUi(container);
+    toast('Изменения отменены');
+  });
   container.querySelector('[data-admin-backup]')?.addEventListener('click',()=>adminSaveFile(`doorscrm-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({format:'doorscrm-backup',version:1,exportedAt:new Date().toISOString(),state},null,2),'application/json'));
   container.querySelector('#adminImport')?.addEventListener('change',async e=>{
     const file=e.target.files?.[0];if(!file)return;
