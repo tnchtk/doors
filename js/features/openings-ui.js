@@ -319,11 +319,7 @@ function findOpeningContext(ids){
   return obj&&block&&floor&&apt&&opening?{obj,block,floor,apt,opening}:null;
 }
 function isForemanWorkspaceUser(){return cloudEnabled&&cloudProfile?.role==='foreman';}
-const bindPageEventsBeforeOpenings=bindPageEvents;
-bindPageEvents=function(){
-  bindPageEventsBeforeOpenings();
-  bindOpeningEvents(document.getElementById('content'));
-};
+registerPageBinder(container=>bindOpeningEvents(container));
 
 function bindOpeningEvents(container){
   if(!container)return;
@@ -700,8 +696,6 @@ if(problemNavItem){
   problemNavItem.badgeFn=source=>reviewBadgeCount(source);
 }
 
-const bindProblemsBase=bindPageEvents;
-bindPageEvents=function(){
-  bindProblemsBase();
-  document.querySelectorAll('[data-open-opening-context]').forEach(element=>element.addEventListener('click',()=>goto('objects',{...JSON.parse(element.dataset.openOpeningContext)})));
-};
+registerPageBinder(container=>{
+  container.querySelectorAll('[data-open-opening-context]').forEach(element=>element.addEventListener('click',()=>goto('objects',{...JSON.parse(element.dataset.openOpeningContext)})));
+});

@@ -80,7 +80,7 @@ function floorList(obj, block){
         const pct= ot?Math.round(done/ot*100):0;
         const brigade=state.brigades.find(b=>b.id===f.brigadeId);
         return `<div class="floor-tile-wrap"><div class="tile" data-open-floor="${htmlEscape(f.id)}">
-          <div class="t-head"><div class="t-name">${f.num} этаж</div><span class="pill ${FLOOR_STATUS_LABELS[floorStatus(f)].cls}">${FLOOR_STATUS_LABELS[floorStatus(f)].label}</span></div>
+          <div class="t-head"><div class="t-name">${htmlEscape(f.num)} этаж</div><span class="pill ${FLOOR_STATUS_LABELS[floorStatus(f)].cls}">${FLOOR_STATUS_LABELS[floorStatus(f)].label}</span></div>
           <div class="t-meta">${brigade?htmlEscape(brigade.name):'—'} · ${ot} ${ruPlural(ot,'дверь','двери','дверей')}</div>
           ${isAdminWorkspaceUser()?`<div class="floor-rate-control"><span>${Number(f.ratePerOpening)>0?`${Number(f.ratePerOpening).toLocaleString('ru-RU')} сом/проём`:'Тариф не задан'}</span><button type="button" class="btn sm" data-floor-rate='${htmlEscape(JSON.stringify({objId:obj.id,blockId:block.id,floorId:f.id}))}'>Тариф</button></div>`:''}
           <div class="t-progress">
@@ -97,7 +97,7 @@ function doorList(obj, block, floor, apt){
   return `
     ${crumb([{label:'Объекты', click:{page:'objects'}}, {label:obj.name, click:{page:'objects', objId:obj.id}}, {label:block.name, click:{page:'objects', objId:obj.id, blockId:block.id}}, {label:floor.num+' этаж', click:{page:'objects', objId:obj.id, blockId:block.id, floorId:floor.id}}, {label:'кв. '+apt.num}])}
     <div class="panel-head" style="margin-bottom:14px;">
-      <h3>Двери — квартира ${apt.num}</h3>
+      <h3>Двери — квартира ${htmlEscape(apt.num)}</h3>
       ${canManageWorkspace()?`<button class="btn sm" data-create-door='${JSON.stringify({objId:obj.id,blockId:block.id,floorId:floor.id,aptId:apt.id})}'>+ Добавить дверь</button><button class="btn primary sm" data-new-request='${htmlEscape(JSON.stringify({objId:obj.id, blockName:block.name, floor:floor.num, apt:apt.num, brigadeId:floor.brigadeId}))}'>+ Заявка на материалы</button>`:''}
     </div>
     <div class="door-grid">

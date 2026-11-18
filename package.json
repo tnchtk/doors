@@ -1,0 +1,8 @@
+{
+  "name": "doors",
+  "private": true,
+  "description": "СметаДверь: учёт монтажа дверей. Сайт статический, npm нужен только для запуска тестов.",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

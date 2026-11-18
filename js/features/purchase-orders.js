@@ -371,11 +371,7 @@ async function downloadOrderPdf(order){
 
 /* ---------- События ---------- */
 
-const bindPageEventsBeforePurchases=bindPageEvents;
-bindPageEvents=function(){
-  bindPageEventsBeforePurchases();
-  const container=document.getElementById('content');
-  if(!container)return;
+registerPageBinder(container=>{
   container.querySelectorAll('[data-order-scope]').forEach(element=>element.addEventListener('click',()=>openOrderBuilder(JSON.parse(element.dataset.orderScope))));
   container.querySelectorAll('[data-order-status]').forEach(element=>element.addEventListener('change',()=>setOrderStatus(element.dataset.orderStatus,element.value)));
   container.querySelectorAll('[data-order-receive]').forEach(element=>element.addEventListener('click',()=>openOrderReceive(element.dataset.orderReceive)));
@@ -384,4 +380,4 @@ bindPageEvents=function(){
     const order=ordersList().find(item=>item.id===element.dataset.orderId);
     if(order)downloadOrderDoc(order,element.dataset.orderDoc,element);
   }));
-};
+});

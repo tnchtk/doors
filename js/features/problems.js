@@ -20,8 +20,8 @@ function pageProblems(){
             return `<tr>
               <td>${htmlEscape(x.obj.name)}</td>
               <td>${htmlEscape(x.block.name)}</td>
-              <td>${x.floor.num}</td>
-              <td>${x.apt.isFloorContainer?`Этаж ${x.floor.num}`:`Квартира ${x.apt.num}`}</td>
+              <td>${htmlEscape(x.floor.num)}</td>
+              <td>${x.apt.isFloorContainer?`Этаж ${htmlEscape(x.floor.num)}`:`Квартира ${htmlEscape(x.apt.num)}`}</td>
               <td>№${x.door.n}</td>
               <td><span class="pill bad">${x.door.problem}</span></td>
               <td>${brigade?htmlEscape(brigade.name):'—'}</td>

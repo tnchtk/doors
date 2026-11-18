@@ -1,7 +1,17 @@
 /* =========================================================================
    EVENT BINDING (per-page)
    ========================================================================= */
+// Модули страниц регистрируют свои обработчики здесь, вместо подмены bindPageEvents.
+const pageBinders=[];
+function registerPageBinder(binder){pageBinders.push(binder);}
+
 function bindPageEvents(){
+  bindBasePageEvents();
+  const container=document.getElementById('content');
+  if(container)pageBinders.forEach(binder=>binder(container));
+}
+
+function bindBasePageEvents(){
   const c=document.getElementById('content');
   bindBrigadeFinanceEvents(c);
   if(route.page==='admin') bindAdminEvents(c);
@@ -51,21 +61,7 @@ function bindPageEvents(){
     el.addEventListener('click', (e)=>openStatusMenu(e, JSON.parse(el.dataset.doorStatus)));
   });
 
-  c.querySelectorAll('[data-req-status]').forEach(el=>{
-    el.addEventListener('change', ()=>{
-      const req=state.requests.find(r=>r.id===el.dataset.reqStatus);
-      req.status=el.value; saveState(); toast('Статус заявки обновлён'); render();
-    });
-  });
-  c.querySelectorAll('[data-pur-status]').forEach(el=>{
-    el.addEventListener('change', ()=>{
-      const p=state.purchases.find(x=>x.id===el.dataset.purStatus);
-      p.status=el.value; saveState(); toast('Статус закупки обновлён'); render();
-    });
-  });
-
   c.querySelectorAll('[data-new-request]').forEach(el=>el.addEventListener('click',()=>openRequestModal(JSON.parse(el.dataset.newRequest))));
-  c.querySelectorAll('[data-new-purchase]').forEach(el=>el.addEventListener('click',()=>openPurchaseModal(JSON.parse(el.dataset.newPurchase))));
   c.querySelectorAll('[data-new-movement]').forEach(el=>el.addEventListener('click',()=>openMovementModal()));
   c.querySelectorAll('[data-resolve-problem]').forEach(el=>el.addEventListener('click',()=>resolveProblem(JSON.parse(el.dataset.resolveProblem))));
   c.querySelectorAll('[data-export]').forEach(el=>el.addEventListener('click',()=>exportCSV(el.dataset.export)));
@@ -426,39 +422,6 @@ function openRequestModal(ctx){
   });
 }
 
-/* ---- new purchase modal ---- */
-function openPurchaseModal(ctx){
-  const overlay=document.createElement('div');
-  overlay.className='overlay';
-  overlay.innerHTML=`
-    <div class="modal">
-      <h3>Создать закупку</h3>
-      <div class="field"><label>Материал</label><input value="${MAT_BY_ID[ctx.matId].name}" disabled></div>
-      <div class="field"><label>Количество</label><input type="number" id="purQty" value="${ctx.qty}"></div>
-      <div class="field"><label>Поставщик</label><input id="purSupplier" placeholder="Название поставщика"></div>
-      <div class="field"><label>Цена за ед., сом</label><input type="number" id="purPrice" value="150"></div>
-      <div class="modal-actions">
-        <button class="btn ghost" data-cancel>Отмена</button>
-        <button class="btn primary" data-confirm>Создать</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', e=>{if(e.target===overlay) overlay.remove();});
-  overlay.querySelector('[data-cancel]').addEventListener('click',()=>overlay.remove());
-  overlay.querySelector('[data-confirm]').addEventListener('click',()=>{
-    const supplier=overlay.querySelector('#purSupplier').value || 'Без названия';
-    state.purchases.unshift({
-      id:'p'+(state.purchases.length+1)+Date.now()%1000,
-      matId:ctx.matId,
-      qty:parseInt(overlay.querySelector('#purQty').value)||0,
-      supplier, price:parseFloat(overlay.querySelector('#purPrice').value)||0,
-      status:'created', date:new Date().toISOString().slice(0,10),
-    });
-    saveState(); toast('Закупка создана'); overlay.remove(); render();
-  });
-}
-
-/* ---- new movement modal ---- */
 function openMovementModal(){
   const overlay=document.createElement('div');
   overlay.className='overlay';

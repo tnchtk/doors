@@ -77,8 +77,8 @@ function brigadeDetail(b){
         <div class="panel-head"><h3>${htmlEscape(b.name)}</h3><span class="pill info">${s.blocksServed.length} участка</span></div>
         <div style="font-size:13px;color:var(--text-dim);line-height:2;">
           Руководитель: <strong style="color:var(--text)">${htmlEscape(b.leader)}</strong><br>
-          Телефон: <span class="mono">${b.phone}</span><br>
-          Рабочих: ${b.workers} чел.<br>
+          Телефон: <span class="mono">${htmlEscape(b.phone)}</span><br>
+          Рабочих: ${htmlEscape(b.workers)} чел.<br>
           Обслуживает: ${s.blocksServed.join(', ')}
         </div>
         <div class="kpi-grid" style="margin-top:16px;">

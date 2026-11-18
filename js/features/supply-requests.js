@@ -148,11 +148,7 @@ async function createShortageOrder(requestId){
   }
 }
 
-const bindPageEventsBeforeSupply=bindPageEvents;
-bindPageEvents=function(){
-  bindPageEventsBeforeSupply();
-  const container=document.getElementById('content');
-  if(!container)return;
+registerPageBinder(container=>{
   container.querySelectorAll('[data-floor-request]').forEach(element=>element.addEventListener('click',()=>openFloorRequestModal(JSON.parse(element.dataset.floorRequest))));
   container.querySelectorAll('[data-supply-status]').forEach(element=>element.addEventListener('change',()=>setRequestStatus(element.dataset.supplyStatus,element.value)));
   container.querySelectorAll('[data-supply-status-set]').forEach(element=>element.addEventListener('click',()=>setRequestStatus(element.dataset.supplyStatusSet,element.dataset.status)));
@@ -160,4 +156,4 @@ bindPageEvents=function(){
   container.querySelectorAll('[data-supply-closed]').forEach(element=>element.addEventListener('click',()=>{supplyView.closed=element.dataset.supplyClosed==='1';render();}));
   container.querySelector('[data-supply-object]')?.addEventListener('change',event=>{supplyView.objId=event.currentTarget.value;render();});
   container.querySelectorAll('[data-goto-page]').forEach(element=>element.addEventListener('click',()=>goto(element.dataset.gotoPage,{})));
-};
+});
