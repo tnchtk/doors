@@ -1,0 +1,15 @@
+/* Экран загрузки с анимированным логотипом */
+.splash{position:fixed;inset:0;z-index:500;display:grid;place-items:center;padding:24px;background:var(--bg,#f4f5fb)}
+:root[data-theme="dark"] .splash{background:radial-gradient(ellipse at 50% 0%,rgba(124,123,224,.16),transparent 25rem),var(--bg,#14162b)}
+.splash-inner{display:grid;justify-items:center;gap:22px;width:min(100%,340px)}
+.splash-logo{display:block;width:min(100%,300px);height:auto}
+.splash-logo-dark{display:none}
+:root[data-theme="dark"] .splash-logo-light{display:none}
+:root[data-theme="dark"] .splash-logo-dark{display:block}
+.splash-text{margin:0;color:var(--text-dim,#5b647a);font-size:14px;text-align:center;opacity:0;animation:splashFade .5s ease-out 1.2s forwards}
+.splash-bar{position:relative;display:block;width:140px;height:4px;overflow:hidden;border-radius:999px;background:rgba(29,33,69,.1);opacity:0;animation:splashFade .5s ease-out 1s forwards}
+:root[data-theme="dark"] .splash-bar{background:rgba(241,241,255,.14)}
+.splash-bar::after{content:"";position:absolute;inset:0 auto 0 0;width:45%;border-radius:inherit;background:#b7ed55;animation:splashSlide 1.3s cubic-bezier(.45,0,.2,1) infinite}
+@keyframes splashFade{to{opacity:1}}
+@keyframes splashSlide{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}
+@media (prefers-reduced-motion:reduce){.splash-text,.splash-bar{animation:none;opacity:1}.splash-bar::after{animation:none;width:100%}}

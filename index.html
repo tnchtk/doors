@@ -16,6 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/splash.css">
 <link rel="stylesheet" href="assets/css/layout.css">
 <link rel="stylesheet" href="assets/css/components.css">
 <link rel="stylesheet" href="assets/css/responsive.css">
@@ -26,7 +27,12 @@
 <link rel="stylesheet" href="assets/css/openings.css">
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><main class="splash" data-splash role="status" aria-live="polite"><div class="splash-inner">
+<img class="splash-logo splash-logo-light" src="assets/isnur-logo-loading.svg" alt="ИСНУР" width="490" height="108">
+<img class="splash-logo splash-logo-dark" src="assets/isnur-logo-loading-dark.svg" alt="" width="490" height="108">
+<span class="splash-bar" aria-hidden="true"></span>
+<p class="splash-text" data-splash-text>Загрузка…</p>
+</div></main></div>
 <div class="toast-wrap" id="toastWrap"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/core/constants.js"></script>
