@@ -60,6 +60,12 @@ function canOpenPage(page){return !cloudEnabled||navItemsForUser().some(item=>it
 function nameOfPage(p){return (NAV_ITEMS.find(n=>n.id===p)||{}).label||'';}
 
 function render(){
+  splashRequested=false;
+  renderApp();
+  if(!splashRequested)Splash.hide();
+}
+
+function renderApp(){
   const app=document.getElementById('app');
   if(cloudEnabled&&cloudRecoveryActive){
     app.innerHTML=cloudPasswordRecoveryPage();
@@ -67,7 +73,7 @@ function render(){
     return;
   }
   if(cloudEnabled&&!cloudInitialized){
-    showLoadingScreen(app,'Подключаем общую базу…');
+    showLoadingScreen('Подключаем общую базу…');
     return;
   }
   if(cloudEnabled&&!cloudUser){
@@ -76,7 +82,7 @@ function render(){
     return;
   }
   if(cloudEnabled&&!state&&cloudLoadingUserId){
-    showLoadingScreen(app,'Загружаем данные…');
+    showLoadingScreen('Загружаем данные…');
     return;
   }
   if(cloudEnabled&&!state){
@@ -135,20 +141,11 @@ function cloudBrandMarkup(){
   return `<div class="cloud-entry-brand">${companyLogoMarkup('cloud-company-logo')}</div>`;
 }
 
-// Экран загрузки с анимированным логотипом. Разметка совпадает со стартовой заставкой в index.html.
-function loadingScreen(message){
-  return `<main class="splash" data-splash role="status" aria-live="polite"><div class="splash-inner">
-    <img class="splash-logo splash-logo-light" src="assets/isnur-logo-loading.svg" alt="ИСНУР" width="490" height="108">
-    <img class="splash-logo splash-logo-dark" src="assets/isnur-logo-loading-dark.svg" alt="" width="490" height="108">
-    <span class="splash-bar" aria-hidden="true"></span>
-    <p class="splash-text" data-splash-text>${htmlEscape(message)}</p>
-  </div></main>`;
-}
-// Если заставка уже на экране, меняем только текст, чтобы анимация не начиналась заново.
-function showLoadingScreen(app,message){
-  const existing=app.querySelector('[data-splash]');
-  if(existing){const text=existing.querySelector('[data-splash-text]');if(text)text.textContent=message;return;}
-  app.innerHTML=loadingScreen(message);
+// Экран загрузки (заставка в index.html). Пока он нужен, render() его не убирает.
+let splashRequested=false;
+function showLoadingScreen(message){
+  splashRequested=true;
+  Splash.show(message);
 }
 
 function cloudGate(title,message,actions=''){
